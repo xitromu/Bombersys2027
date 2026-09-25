@@ -46,19 +46,20 @@ export class Controls {
 
   press(player, dir) {
     const stack = this.held[player];
-    const before = stack.at(-1);
+    const before = stack.join();
     const index = stack.indexOf(dir);
     if (index >= 0) stack.splice(index, 1);
     stack.push(dir);
-    if (dir !== before) this.sendDir(player);
+    if (stack.join() !== before) this.sendDir(player);
   }
 
   release(player, dir) {
     const stack = this.held[player];
-    const before = stack.at(-1);
     const index = stack.indexOf(dir);
-    if (index >= 0) stack.splice(index, 1);
-    if (stack.at(-1) !== before) this.sendDir(player);
+    if (index >= 0) {
+      stack.splice(index, 1);
+      this.sendDir(player);
+    }
   }
 
   releaseAll() {
@@ -68,8 +69,11 @@ export class Controls {
     }
   }
 
+  // Отправляем последнюю зажатую стрелку и предыдущую: если свернул раньше прохода,
+  // сервер поведёт героя по предыдущей, пока поворот не станет возможен.
   sendDir(player) {
-    this.net.send({ type: 'dir', player, dir: this.held[player].at(-1) ?? null });
+    const stack = this.held[player];
+    this.net.send({ type: 'dir', player, dir: stack.at(-1) ?? null, alt: stack.at(-2) ?? null });
   }
 
   destroy() {

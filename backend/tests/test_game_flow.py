@@ -20,6 +20,16 @@ def test_door_takes_player_to_next_level():
     assert game.level == 2 and game.phase == "ready"
 
 
+def test_early_turn_keeps_walking_until_passage():
+    game = make_game(board=Board.empty())
+    game.players[0].x, game.players[0].y = 1.0, 0.0
+    # жмём «вниз», ещё держа «вправо»: под (1,0) колонна — идём вправо до прохода (2,0) и сворачиваем
+    game.set_direction(0, "down", alt="right")
+    run(game, 1.2)
+    player = game.players[0]
+    assert player.x == 2.0 and player.y > 0.5
+
+
 def test_two_players_level_continues_while_one_alive():
     game = make_game(players=2, board=Board.empty())
     game._kill(game.players[0], epic=False)

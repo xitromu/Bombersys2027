@@ -59,7 +59,7 @@ def move_on_grid(
         other_lane = lane + (1 if offset > 0 else -1)
         if passable(cell(here + sign, lane)):
             goal = lane
-        elif abs(offset) >= CORNER_ASSIST and passable(cell(here + sign, other_lane)):
+        elif 1 - abs(offset) <= CORNER_ASSIST and passable(cell(here + sign, other_lane)):
             goal = other_lane
         else:
             return x, y

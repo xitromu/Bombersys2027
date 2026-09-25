@@ -8,10 +8,18 @@
   <style>
     html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
     #game { width: 100vw; height: 100vh; }
+    #fullscreen {
+      position: fixed; right: 10px; bottom: 10px; z-index: 10;
+      padding: 6px 12px; font: 15px Arial, sans-serif; color: #fff;
+      background: rgba(20, 10, 60, 0.6); border: 1px solid #5566cc; border-radius: 6px;
+      cursor: pointer; opacity: 0.55;
+    }
+    #fullscreen:hover { opacity: 1; }
   </style>
 </head>
 <body>
   <div id="game"></div>
+  <button id="fullscreen" type="button" tabindex="-1">⛶ На весь экран</button>
   <!-- Phaser — движок 2D-игр; лежит в проекте, чтобы игра работала без интернета -->
   <script src="vendor/phaser.min.js"></script>
   <script type="module" src="js/main.js"></script>

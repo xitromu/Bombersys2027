@@ -7,6 +7,7 @@ import {
   cellCenterX, cellCenterY, cellLeft, cellTop, textStyle,
 } from '../layout.js';
 import { Controls } from '../controls.js';
+import { DEATH_PHRASES, EPIC_PHRASES, HAIKU, START_HAIKU, pick } from '../texts.js';
 
 // Кадры ходьбы в PLAYER1.bmp: влево 0–6, вправо 7–13, вверх 14–20, вниз 21–27.
 const IDLE = { left: 0, right: 13, up: 14, down: 21 };
@@ -126,11 +127,32 @@ export class GameScene extends Phaser.Scene {
       return parts;
     });
 
+    this.createHaikuPanel();
+
     this.readyImage = this.add.image(250, 340, 'ready').setOrigin(0).setDepth(DEPTH.overlay).setVisible(false);
     this.pauseImage = this.add.image(315, 340, 'pause').setOrigin(0).setDepth(DEPTH.overlay).setVisible(false);
     this.message = this.add.text(FIELD_X + FIELD_SIZE / 2, 290, '',
       textStyle(44, '#ffcc00', { stroke: '#000000', strokeThickness: 6, align: 'center' }))
       .setOrigin(0.5).setDepth(DEPTH.overlay);
+  }
+
+  // Хокку живёт на правой панели, поверх «космического взрыва».
+  createHaikuPanel() {
+    const depth = DEPTH.panel + 1;
+    this.haikuBox = this.add.rectangle(763, 166, 232, 232, 0x000000, 0.72).setOrigin(0)
+      .setStrokeStyle(1, 0x6655cc).setDepth(depth);
+    this.haikuTitle = this.add.text(879, 178, '', textStyle(17, '#ffcc00')).setOrigin(0.5, 0).setDepth(depth);
+    this.haikuText = this.add.text(879, 216, '', textStyle(16, '#ffffff', {
+      fontStyle: 'italic', align: 'center', lineSpacing: 10, wordWrap: { width: 224 },
+    })).setOrigin(0.5, 0).setDepth(depth);
+    this.showHaiku(START_HAIKU.title, START_HAIKU.text);
+  }
+
+  showHaiku(title, text) {
+    this.haikuTitle.setText(title);
+    this.haikuText.setText(text);
+    this.tweens.add({ targets: [this.haikuTitle, this.haikuText], alpha: { from: 0, to: 1 }, duration: 1200 });
+    this.tweens.add({ targets: this.haikuBox, alpha: { from: 0, to: 1 }, duration: 1200 });
   }
 
   // ------------------------------------------------------------ новое состояние от сервера
@@ -143,7 +165,8 @@ export class GameScene extends Phaser.Scene {
     for (const event of state.events) this.handleEvent(event);
     this.syncWalls(state.grid);
     this.sync(this.items, state.items, (o) => o.id,
-      (o) => this.add.image(cellLeft(o.x), cellTop(o.y), `item_${o.kind}`).setOrigin(0).setDepth(DEPTH.items));
+      (o) => this.add.image(cellLeft(o.x), cellTop(o.y), `item_${o.kind}`).setOrigin(0).setDepth(DEPTH.items),
+      (image, o) => (o.locked ? image.setTint(0xff4040) : image.clearTint()));  // запертая дверь — красная
     this.sync(this.bombs, state.bombs, (o) => o.id,
       (o) => this.add.sprite(cellLeft(o.x), cellTop(o.y), `bomb${o.owner + 1}`, 0).setOrigin(0).setDepth(DEPTH.bombs),
       (sprite, o) => sprite.setFrame(Math.min(4, Math.floor(o.progress * 5))));
@@ -256,6 +279,34 @@ export class GameScene extends Phaser.Scene {
         this.popup(cellCenterX(event.x), cellTop(event.y), `+${event.score}`, '#ffcc00');
         break;
       }
+      case 'item_destroyed': {
+        const boom = this.add.sprite(cellCenterX(event.x), cellCenterY(event.y), 'explosion')
+          .setDepth(DEPTH.explosion).setScale(0.6).play('explosion');
+        boom.once('animationcomplete', () => boom.destroy());
+        break;
+      }
+      case 'door_locked':
+        this.popup(cellCenterX(event.x), cellTop(event.y), 'Дверь заперта! Убейте всех врагов', '#ff6666', 2600);
+        break;
+      case 'door_closed':
+        this.popup(cellCenterX(event.x), cellTop(event.y), 'Сначала убейте всех врагов!', '#ff6666');
+        break;
+      case 'all_enemies_killed':
+        this.popup(FIELD_X + FIELD_SIZE / 2, 250, 'Все враги повержены!', '#66ff66', 2200);
+        if (event.door_unlocked) this.popup(cellCenterX(event.x), cellTop(event.y), 'Дверь открыта!', '#66ff66', 2200);
+        break;
+      case 'player_died': {
+        const p = this.curr.players[event.player];
+        const phrase = pick(event.kind === 'super' ? EPIC_PHRASES : DEATH_PHRASES);
+        const x = Phaser.Math.Clamp(cellCenterX(p.x), 130, FIELD_X + FIELD_SIZE - 130);
+        this.popup(x, Math.max(40, cellTop(p.y) - 10), phrase, '#ffffff', 2800, 26);
+        break;
+      }
+      case 'level_done':
+        if (event.result === 'next') {
+          this.showHaiku(`Хокку уровня ${this.curr.level}`, HAIKU[(this.curr.level - 1) % HAIKU.length]);
+        }
+        break;
       case 'item_taken': {
         const [text, color] = ITEM_POPUP[event.kind] ?? ['', '#ffffff'];
         this.popup(cellCenterX(event.x), cellTop(event.y), text, color);
@@ -271,15 +322,20 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  popup(x, y, text, color) {
-    const label = this.add.text(x, y, text, textStyle(22, color, { stroke: '#000000', strokeThickness: 4 }))
+  popup(x, y, text, color, duration = 1100, size = 22) {
+    const label = this.add.text(x, y, text, textStyle(size, color, { stroke: '#000000', strokeThickness: 4 }))
       .setOrigin(0.5).setDepth(DEPTH.popups);
-    this.tweens.add({ targets: label, y: y - 40, alpha: 0, duration: 1100, onComplete: () => label.destroy() });
+    this.tweens.add({
+      targets: label, y: y - 40, alpha: { from: 1, to: 0 }, ease: 'Quad.easeIn', duration,
+      onComplete: () => label.destroy(),
+    });
   }
 
   updateHud(state) {
     this.levelText.setText(`Уровень ${state.level}`);
-    this.enemiesText.setText(`Врагов: ${state.enemies.length}`);
+    const locked = state.items.some((i) => i.locked);
+    this.enemiesText.setText(locked ? `Врагов: ${state.enemies.length} — дверь заперта` : `Врагов: ${state.enemies.length}`)
+      .setFontSize(locked ? 16 : 22).setColor(locked ? '#b00000' : '#15093a');
     this.totalText.setText(`Очки: ${state.players.reduce((sum, p) => sum + p.score, 0)}`);
     state.players.forEach((p, i) => {
       const hud = this.hud[i];

@@ -21,3 +21,15 @@ const game = new Phaser.Game({
 
 // Общие для всех сцен вещи кладём в registry — «общую полку» Phaser.
 game.registry.set('net', new Net());
+
+// Кнопка «На весь экран» — обычная HTML-кнопка поверх игры.
+const fullscreen = document.getElementById('fullscreen');
+if (!document.fullscreenEnabled) fullscreen.hidden = true;
+fullscreen.addEventListener('click', () => {
+  if (document.fullscreenElement) document.exitFullscreen();
+  else document.documentElement.requestFullscreen();
+  fullscreen.blur(); // иначе Пробел/Enter в игре снова «нажмут» кнопку
+});
+document.addEventListener('fullscreenchange', () => {
+  fullscreen.textContent = document.fullscreenElement ? '✕ Обычный экран' : '⛶ На весь экран';
+});

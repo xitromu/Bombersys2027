@@ -1,7 +1,7 @@
 """Мозги врагов.
 
 Каждый раз, дойдя до центра клетки, враг решает, в какую соседнюю клетку идти дальше.
-Насколько он хорош, задают настройки уровня (difficulty.py):
+Насколько он хорош, задают его параметры (их выдаёт difficulty.enemy_stats):
   * sight — с какого расстояния он «чует» игрока;
   * memory — сколько секунд идёт туда, где видел игрока последний раз;
   * smart — как часто ищет настоящий путь в обход стен (поиск в ширину, BFS),
@@ -17,14 +17,13 @@ from collections import deque
 from collections.abc import Callable, Iterable
 
 from .board import Board, Cell
-from .difficulty import LevelSettings
 from .entities import Enemy, Player
 
 GREEDY_SHARE = 0.7        # если не ищет путь — с такой долей всё же идёт «в сторону игрока»
 KEEP_STRAIGHT = 0.75      # в свободном блуждании чаще идёт прямо, чем сворачивает
 
 
-def perceive(enemy: Enemy, players: Iterable[Player], settings: LevelSettings, dt: float) -> None:
+def perceive(enemy: Enemy, players: Iterable[Player], dt: float) -> None:
     """Замечает ближайшего живого игрока в радиусе sight или постепенно «забывает» его."""
     nearest, best = None, math.inf
     for player in players:
@@ -32,10 +31,10 @@ def perceive(enemy: Enemy, players: Iterable[Player], settings: LevelSettings, d
             distance = math.hypot(player.x - enemy.x, player.y - enemy.y)
             if distance < best:
                 nearest, best = player, distance
-    if nearest is not None and best <= settings.sight:
+    if nearest is not None and best <= enemy.sight:
         enemy.chasing = True
         enemy.last_seen = nearest.cell
-        enemy.memory_left = settings.memory
+        enemy.memory_left = enemy.memory
         return
     enemy.memory_left -= dt
     if enemy.memory_left <= 0:
@@ -82,7 +81,6 @@ def choose_step(
     board: Board,
     blocked: set[Cell],
     danger: set[Cell],
-    settings: LevelSettings,
     rng: random.Random,
 ) -> Cell | None:
     """Решает, в какую соседнюю клетку идти. None — постоять на месте."""
@@ -95,7 +93,7 @@ def choose_step(
     if not options:
         return None
 
-    if danger and rng.random() < settings.avoid_danger:
+    if danger and rng.random() < enemy.avoid_danger:
         safe = [c for c in options if c not in danger]
         if here in danger:
             options = safe or options   # убегаем из-под взрыва куда угодно
@@ -109,10 +107,10 @@ def choose_step(
         return _wander(enemy, here, options, rng)
 
     roll = rng.random()
-    if roll < settings.smart:
+    if roll < enemy.smart:
         step = bfs_next_step(here, goal, walkable, board)
         if step in options:
             return step
-    if roll < settings.smart + (1 - settings.smart) * GREEDY_SHARE:
+    if roll < enemy.smart + (1 - enemy.smart) * GREEDY_SHARE:
         return _greedy(here, goal, options, rng)
     return rng.choice(options)

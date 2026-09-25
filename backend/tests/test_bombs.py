@@ -1,7 +1,7 @@
 from app.game.board import EMPTY, WALL, Board
-from app.game.config import BOMB_FUSE, FLAME_TIME
+from app.game.config import BOMB_FUSE, CHAIN_DELAY, FLAME_TIME
 from app.game.engine import blast_cells
-from app.game.entities import Enemy
+from app.game.entities import Enemy, Item
 
 from .conftest import make_game, run
 
@@ -47,8 +47,27 @@ def test_chain_reaction():
     game.players[0].x, game.players[0].y = 14.0, 14.0
     first, second = game.bombs.values()
     second.fuse = 100                       # сама бы не взорвалась
-    run(game, BOMB_FUSE + 0.1)
+    run(game, BOMB_FUSE + 0.05)
+    assert list(game.bombs) == [second.id]  # вторая ещё ждёт — волна идёт с задержкой
+    run(game, CHAIN_DELAY + 0.05)
     assert not game.bombs
+
+
+def test_chain_wave_goes_from_earliest_to_latest():
+    game = make_game(board=Board.empty())
+    player = game.players[0]
+    player.capacity = 5
+    for x in (4, 2, 6):                     # ставим: средняя, левая, правая
+        player.x, player.y = float(x), 0.0
+        game.place_bomb(0)
+    player.x, player.y = 14.0, 14.0
+    middle, left, right = game.bombs.values()
+    left.fuse = right.fuse = 100
+    order = []
+    for _ in range(200):
+        game.update(1 / 30)
+        order += [e["x"] for e in game.snapshot()["events"] if e["type"] == "explosion"]
+    assert order == [4, 2, 6]               # левая поставлена раньше правой — и рвётся раньше
 
 
 def test_fire_kills_player_and_enemy_and_gives_score():
@@ -60,7 +79,52 @@ def test_fire_kills_player_and_enemy_and_gives_score():
     assert game.players[0].death_kind == "super"   # стоял на бомбе — эпичная смерть
     assert game.players[0].lives == 4
     assert not game.enemies
-    assert game.players[0].score == 200
+    assert game.players[0].score == 100     # зелёный враг
+
+
+def test_fire_destroys_revealed_items_but_not_by_revealing_bomb():
+    board = Board.empty()
+    board.set((2, 0), WALL)
+    game = make_game(board=board)
+    game.hidden = {(2, 0): "gems"}
+    game.players[0].x = 4.0
+    game.place_bomb(0)                      # эта бомба откроет бонус
+    game.players[0].x, game.players[0].y = 14.0, 14.0
+    run(game, BOMB_FUSE + FLAME_TIME)
+    assert [i.kind for i in game.items.values()] == ["gems"]
+    game.players[0].x, game.players[0].y = 0.0, 0.0
+    game.place_bomb(0)                      # а эта — сожжёт
+    game.players[0].x, game.players[0].y = 14.0, 14.0
+    run(game, BOMB_FUSE + 0.1)
+    assert not game.items
+
+
+def test_burned_door_opens_only_when_all_enemies_dead():
+    game = make_game(board=Board.empty())
+    game.items = {1: Item(1, (2, 0), "door")}
+    game.enemies = {9: Enemy(9, 14.0, 14.0, tier=0, speed=0)}
+    game.place_bomb(0)
+    game.set_direction(0, "down")
+    run(game, 1.0)
+    game.set_direction(0, None)
+    run(game, BOMB_FUSE)
+    assert game.items[1].burned and game.snapshot()["items"][0]["locked"]
+    game.players[0].x, game.players[0].y = 2.0, 0.0
+    run(game, 0.5)                          # стоим на двери — но она заперта
+    assert game.players[0].state == "alive"
+    game.enemies = {}
+    run(game, 0.1)
+    assert game.players[0].state == "exited"
+
+
+def test_stronger_enemy_gives_more_points():
+    game = make_game(board=Board.empty())
+    game.enemies = {1: Enemy(1, 2.0, 0.0, tier=0, speed=0), 2: Enemy(2, 0.0, 2.0, tier=3, speed=0)}
+    game.players[0].x, game.players[0].y = 0.0, 0.0
+    game.place_bomb(0)
+    game.players[0].x, game.players[0].y = 14.0, 14.0
+    run(game, BOMB_FUSE + 0.1)
+    assert game.players[0].score == 100 + 1000
 
 
 def test_level_ends_after_death_and_is_replayed():

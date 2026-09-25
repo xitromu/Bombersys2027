@@ -24,8 +24,9 @@ from .config import (
     BLAST_RADIUS,
     BOMB_BONUS_OVERFLOW_SCORE,
     BOMB_FUSE,
+    CHAIN_DELAY,
     DEATH_TIME,
-    ENEMY_SCORE,
+    ENEMY_SCORES,
     ENEMY_TOUCH_DISTANCE,
     EXTRA_LIFE_EVERY,
     FLAME_TIME,
@@ -41,7 +42,7 @@ from .config import (
     START_BOMBS,
     START_FACING,
 )
-from .difficulty import for_level
+from .difficulty import enemy_stats, for_level
 from .entities import Bomb, Enemy, Flame, Item, Player
 from .movement import DIRECTIONS, move_on_grid, touched_cells
 
@@ -97,6 +98,7 @@ class Game:
         self.bombs: dict[int, Bomb] = {}
         self.flames: list[Flame] = []
         self.legacy_dropped = False
+        self.at_locked_door: set[int] = set()
         self.result = None
         for player in self.players:
             if player.lives > 0:
@@ -132,8 +134,11 @@ class Game:
             if len(candidates) >= self.settings.enemies:
                 break
         enemies = {}
-        for x, y in self.rng.sample(candidates, min(len(candidates), self.settings.enemies)):
-            enemy = Enemy(next(self._ids), float(x), float(y), self.settings.enemy_tier, self.settings.enemy_speed)
+        cells = self.rng.sample(candidates, min(len(candidates), self.settings.enemies))
+        for number, (x, y) in enumerate(cells):
+            stats = enemy_stats(self.settings, strong=number < self.settings.strong_enemies)
+            enemy = Enemy(next(self._ids), float(x), float(y), stats.tier, stats.speed, sight=stats.sight,
+                          smart=stats.smart, memory=stats.memory, avoid_danger=stats.avoid_danger)
             enemies[enemy.id] = enemy
         return enemies
 
@@ -146,9 +151,11 @@ class Game:
 
     # ------------------------------------------------------------------ команды игроков
 
-    def set_direction(self, index: int, direction: str | None) -> None:
+    def set_direction(self, index: int, direction: str | None, alt: str | None = None) -> None:
+        """direction — последняя нажатая стрелка, alt — предыдущая, если она ещё зажата."""
         if 0 <= index < len(self.players) and (direction is None or direction in DIRECTIONS):
             self.players[index].wanted = direction
+            self.players[index].wanted_alt = alt if alt in DIRECTIONS and alt != direction else None
 
     def place_bomb(self, index: int) -> None:
         if self.phase != "playing" or not 0 <= index < len(self.players):
@@ -215,23 +222,43 @@ class Game:
         }
         if player.wanted is None:
             return
-        player.facing = player.wanted
         blocked = {b.cell for b in self.bombs.values() if b.id not in player.ghost_bombs}
 
         def passable(cell: Cell) -> bool:
             return self.board.is_floor(cell) and cell not in blocked
 
-        x, y = move_on_grid(player.x, player.y, player.wanted, PLAYER_SPEED * dt, passable)
-        player.moving = (x, y) != (player.x, player.y)
-        player.x, player.y = x, y
+        # Повернул раньше, чем дошёл до прохода, — продолжаем идти по прежней клавише,
+        # а как только проход появится, свернём в него сами.
+        for direction in (player.wanted, player.wanted_alt):
+            if direction is None:
+                continue
+            x, y = move_on_grid(player.x, player.y, direction, PLAYER_SPEED * dt, passable)
+            if (x, y) != (player.x, player.y):
+                player.x, player.y, player.facing, player.moving = x, y, direction, True
+                return
+        player.facing = player.wanted
+
+    def _door_locked(self, item: Item) -> bool:
+        """Взорванная дверь пускает, только когда убиты все враги."""
+        return item.kind == "door" and item.burned and bool(self.enemies)
 
     def _pick_items(self) -> None:
         for player in self.players:
+            at_locked = False
             for item in list(self.items.values()):
                 if not player.active:
                     break
                 if math.hypot(player.x - item.cell[0], player.y - item.cell[1]) < PICKUP_DISTANCE:
-                    self._apply_item(player, item)
+                    if self._door_locked(item):
+                        at_locked = True
+                        if player.index not in self.at_locked_door:
+                            self._emit("door_closed", player=player.index, x=item.cell[0], y=item.cell[1])
+                    else:
+                        self._apply_item(player, item)
+            if at_locked:
+                self.at_locked_door.add(player.index)
+            else:
+                self.at_locked_door.discard(player.index)
 
     def _apply_item(self, player: Player, item: Item) -> None:
         kind = item.kind
@@ -283,34 +310,47 @@ class Game:
     def _tick_bombs(self, dt: float) -> None:
         for bomb in self.bombs.values():
             bomb.fuse -= dt
-        for bomb in [b for b in self.bombs.values() if b.fuse <= 0]:
-            if bomb.id in self.bombs:
-                self._explode(bomb)
+        # взрываем по порядку установки: сначала самые ранние
+        for bomb in sorted((b for b in self.bombs.values() if b.fuse <= 0), key=lambda b: b.id):
+            self._explode(bomb)
 
-    def _explode(self, first: Bomb) -> None:
-        queue = [first]
-        while queue:
-            bomb = queue.pop()
-            if bomb.id not in self.bombs:
-                continue
-            del self.bombs[bomb.id]
-            self._emit("explosion", id=bomb.id, x=bomb.cell[0], y=bomb.cell[1])
-            for cell, kind in blast_cells(self.board, bomb.cell):
-                self.flames.append(Flame(cell, kind, FLAME_TIME, bomb.owner))
-                if self.board.get(cell) == WALL:
-                    self.board.set(cell, EMPTY)
-                    self._emit("wall_destroyed", x=cell[0], y=cell[1])
-                    hidden = self.hidden.pop(cell, None)
-                    if hidden:
-                        item = Item(next(self._ids), cell, hidden)
-                        self.items[item.id] = item
-                # цепная реакция: огонь поджигает соседние бомбы
-                queue.extend(b for b in self.bombs.values() if b.cell == cell)
+    def _explode(self, bomb: Bomb) -> None:
+        del self.bombs[bomb.id]
+        self._emit("explosion", id=bomb.id, x=bomb.cell[0], y=bomb.cell[1])
+        caught: list[Bomb] = []
+        for cell, kind in blast_cells(self.board, bomb.cell):
+            self.flames.append(Flame(cell, kind, FLAME_TIME, bomb.owner, bomb.id))
+            if self.board.get(cell) == WALL:
+                self.board.set(cell, EMPTY)
+                self._emit("wall_destroyed", x=cell[0], y=cell[1])
+                hidden = self.hidden.pop(cell, None)
+                if hidden:
+                    item = Item(next(self._ids), cell, hidden, revealed_by=bomb.id)
+                    self.items[item.id] = item
+            caught.extend(b for b in self.bombs.values() if b.cell == cell)
+        # Цепная реакция идёт волной: задетые бомбы рвутся по очереди — от поставленной раньше к поздним.
+        for rank, other in enumerate(sorted(caught, key=lambda b: b.id), start=1):
+            other.fuse = min(other.fuse, CHAIN_DELAY * rank)
 
     def _tick_flames(self, dt: float) -> None:
         for flame in self.flames:
             flame.time_left -= dt
         self.flames = [f for f in self.flames if f.time_left > 0]
+        self._burn_items()
+
+    def _burn_items(self) -> None:
+        """Огонь уничтожает открытые бонусы. Дверь не сгорает, но запирается до гибели всех врагов."""
+        for item in list(self.items.values()):
+            if not any(f.cell == item.cell and f.bomb != item.revealed_by for f in self.flames):
+                continue
+            x, y = item.cell
+            if item.kind != "door":
+                del self.items[item.id]
+                self._emit("item_destroyed", kind=item.kind, x=x, y=y)
+            elif not item.burned:
+                item.burned = True
+                if self.enemies:
+                    self._emit("door_locked", x=x, y=y)
 
     def _danger_cells(self) -> set[Cell]:
         cells = {f.cell for f in self.flames}
@@ -324,7 +364,7 @@ class Game:
         blocked = {b.cell for b in self.bombs.values()}
         danger = self._danger_cells() if (self.bombs or self.flames) else set()
         for enemy in self.enemies.values():
-            ai.perceive(enemy, self.players, self.settings, dt)
+            ai.perceive(enemy, self.players, dt)
             self._move_enemy(enemy, dt, blocked, danger)
 
     def _move_enemy(self, enemy: Enemy, dt: float, blocked: set[Cell], danger: set[Cell]) -> None:
@@ -341,7 +381,7 @@ class Game:
             if (enemy.x, enemy.y) != here:
                 enemy.target = here      # сначала встать ровно в центр клетки
             else:
-                step = ai.choose_step(enemy, self.board, blocked, danger, self.settings, self.rng)
+                step = ai.choose_step(enemy, self.board, blocked, danger, self.rng)
                 if step is None:
                     enemy.wait = ENEMY_REST
                     return
@@ -375,11 +415,15 @@ class Game:
                 hit = touched_cells(enemy.x, enemy.y, HITBOX) & fire.keys()
                 if hit:
                     owner = self.players[fire[min(hit)]]
-                    points = ENEMY_SCORE * (enemy.tier + 1)
+                    points = ENEMY_SCORES[enemy.tier]
                     del self.enemies[enemy.id]
                     self._add_score(owner, points)
                     self._emit("enemy_killed", id=enemy.id, x=round(enemy.x, 3), y=round(enemy.y, 3),
                                tier=enemy.tier, player=owner.index, score=points)
+                    if not self.enemies:
+                        doors = [i for i in self.items.values() if i.kind == "door" and i.burned]
+                        self._emit("all_enemies_killed", door_unlocked=bool(doors),
+                                   x=doors[0].cell[0] if doors else None, y=doors[0].cell[1] if doors else None)
         for player in self.players:
             if player.active and any(
                 math.hypot(player.x - e.x, player.y - e.y) < ENEMY_TOUCH_DISTANCE for e in self.enemies.values()
@@ -440,6 +484,9 @@ class Game:
                 for b in self.bombs.values()
             ],
             "flames": [{"x": f.cell[0], "y": f.cell[1], "kind": f.kind} for f in self.flames],
-            "items": [{"id": i.id, "x": i.cell[0], "y": i.cell[1], "kind": i.kind} for i in self.items.values()],
+            "items": [
+                {"id": i.id, "x": i.cell[0], "y": i.cell[1], "kind": i.kind, "locked": self._door_locked(i)}
+                for i in self.items.values()
+            ],
             "events": events,
         }

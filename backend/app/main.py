@@ -7,7 +7,9 @@
 
 Сообщения от браузера (JSON):
     {"type": "start", "players": 1}           новая игра на 1 или 2 игроков
-    {"type": "dir", "player": 0, "dir": "up"} куда жмёт игрок (null — отпустил)
+    {"type": "dir", "player": 0, "dir": "up", "alt": "left"}
+                                              куда жмёт игрок (null — отпустил);
+                                              alt — предыдущая ещё зажатая клавиша
     {"type": "bomb", "player": 0}             поставить бомбу
     {"type": "pause"}                         пауза / продолжить
     {"type": "quit"}                          выйти в меню
@@ -60,7 +62,7 @@ class Session:
         elif self.game is None:
             return
         elif kind == "dir":
-            self.game.set_direction(int(message.get("player", 0)), message.get("dir"))
+            self.game.set_direction(int(message.get("player", 0)), message.get("dir"), message.get("alt"))
         elif kind == "bomb":
             self.game.place_bomb(int(message.get("player", 0)))
         elif kind == "pause":

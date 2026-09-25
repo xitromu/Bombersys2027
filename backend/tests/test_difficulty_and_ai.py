@@ -3,7 +3,7 @@ import random
 from app.game import ai
 from app.game.board import WALL, Board
 from app.game.config import PLAYER_SPEED
-from app.game.difficulty import for_level
+from app.game.difficulty import enemy_stats, for_level
 from app.game.entities import Enemy
 
 from .conftest import make_game, run
@@ -19,7 +19,18 @@ def test_difficulty_grows_smoothly_and_never_falls():
 
 
 def test_enemies_always_slower_than_player():
-    assert all(for_level(n).enemy_speed < PLAYER_SPEED for n in range(1, 100))
+    for n in range(1, 100):
+        for strong in (False, True):
+            assert enemy_stats(for_level(n), strong).speed < PLAYER_SPEED
+
+
+def test_strong_enemies_are_better_and_appear_from_level_two():
+    assert for_level(1).strong_enemies == 0
+    assert for_level(2).strong_enemies == 1
+    settings = for_level(5)
+    normal, strong = enemy_stats(settings), enemy_stats(settings, strong=True)
+    assert strong.tier == normal.tier + 1
+    assert strong.speed > normal.speed and strong.sight > normal.sight and strong.smart > normal.smart
 
 
 def test_first_levels_are_gentle():
@@ -38,15 +49,15 @@ def test_bfs_finds_way_around_wall():
 def test_smart_enemy_catches_standing_player():
     game = make_game(level=12, board=Board.empty())
     game.players[0].x, game.players[0].y = 0.0, 0.0
-    game.enemies = {1: Enemy(1, 8.0, 6.0, tier=3, speed=2.5)}
+    game.enemies = {1: Enemy(1, 8.0, 6.0, tier=3, speed=2.5, sight=9, smart=0.85, memory=4)}
     run(game, 15.0)
     assert game.players[0].state != "alive"
 
 
 def test_level_one_enemy_does_not_notice_far_player():
     game = make_game(level=1, board=Board.empty())
-    enemy = Enemy(1, 10.0, 10.0, tier=0, speed=1.5)
-    ai.perceive(enemy, game.players, game.settings, 1 / 30)
+    enemy = Enemy(1, 10.0, 10.0, tier=0, speed=1.5, sight=game.settings.sight)
+    ai.perceive(enemy, game.players, 1 / 30)
     assert not enemy.chasing
 
 
@@ -54,7 +65,7 @@ def test_smart_enemy_avoids_bomb_zone():
     game = make_game(level=15, board=Board.empty())
     game.rng = random.Random(3)
     game.players[0].x, game.players[0].y = 14.0, 14.0
-    enemy = Enemy(1, 0.0, 4.0, tier=3, speed=0)
+    enemy = Enemy(1, 0.0, 4.0, tier=3, speed=0, avoid_danger=0.9)
     danger = {(0, 3), (0, 5)}
-    steps = [ai.choose_step(enemy, game.board, set(), danger, game.settings, game.rng) for _ in range(200)]
+    steps = [ai.choose_step(enemy, game.board, set(), danger, game.rng) for _ in range(200)]
     assert sum(step in danger for step in steps) < 40   # в опасную клетку идёт редко
