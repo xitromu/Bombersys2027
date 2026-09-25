@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 import json
+import sys
 from datetime import datetime
 from pathlib import Path
 
-RECORDS_FILE = Path(__file__).resolve().parent.parent / "data" / "records.json"
+# У собранного BOMBERSYS.exe рекорды лежат рядом с ним, в папке bombersys_data.
+if getattr(sys, "frozen", False):
+    RECORDS_FILE = Path(sys.executable).resolve().parent / "bombersys_data" / "records.json"
+else:
+    RECORDS_FILE = Path(__file__).resolve().parent.parent / "data" / "records.json"
 TOP = 10
 
 

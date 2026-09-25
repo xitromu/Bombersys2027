@@ -1,6 +1,6 @@
 [project]
 name = "bombersys"
-version = "0.1.0"
+version = "0.3.0"
 description = "Bomberman 2005 года, возрождённый: игровой сервер на Python и браузерный клиент"
 requires-python = ">=3.11"
 dependencies = [
@@ -12,6 +12,9 @@ dependencies = [
 bombersys = "app.main:run"
 
 [dependency-groups]
+build = [
+    "pyinstaller>=6.22.3",
+]
 dev = [
     "httpx2>=2.13.1",
     "pytest>=8",

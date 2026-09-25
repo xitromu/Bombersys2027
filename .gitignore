@@ -24,3 +24,8 @@ legacy/start.bmp
 # --- Windows ---
 Thumbs.db
 desktop.ini
+
+# Сборка exe
+backend/build/
+backend/dist/
+backend/*.spec

@@ -20,6 +20,9 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import mimetypes
+import os
+import socket
+import sys
 import threading
 import webbrowser
 from pathlib import Path
@@ -32,7 +35,9 @@ from .game.engine import Game
 from .game.config import TICK_RATE
 from .game.difficulty import table
 
-FRONTEND = Path(__file__).resolve().parents[2] / "frontend"
+# В собранном BOMBERSYS.exe файлы лежат во временной папке распаковки (sys._MEIPASS).
+FROZEN = getattr(sys, "frozen", False)
+FRONTEND = (Path(sys._MEIPASS) if FROZEN else Path(__file__).resolve().parents[2]) / "frontend"
 HOST, PORT = "127.0.0.1", 8000
 
 app = FastAPI(title="BOMBERSYS")
@@ -117,10 +122,23 @@ mimetypes.add_type("text/javascript", ".js")
 app.mount("/", StaticFiles(directory=FRONTEND, html=True), name="frontend")
 
 
+def free_port(preferred: int) -> int:
+    """8000, если свободен, иначе любой свободный порт."""
+    with socket.socket() as probe:
+        try:
+            probe.bind((HOST, preferred))
+        except OSError:
+            probe.bind((HOST, 0))
+        return probe.getsockname()[1]
+
+
 def run() -> None:
     import uvicorn
 
-    url = f"http://{HOST}:{PORT}"
-    print(f"BOMBERSYS запущен: {url}  (остановить — Ctrl+C)")
-    threading.Timer(1.0, webbrowser.open, args=[url]).start()
-    uvicorn.run(app, host=HOST, port=PORT, log_level="warning")
+    port = free_port(PORT)
+    url = f"http://{HOST}:{port}"
+    print(f"BOMBERSYS запущен: {url}", flush=True)
+    print("Играйте в открывшемся браузере. Чтобы выйти — закройте это окно (или Ctrl+C).", flush=True)
+    if not os.environ.get("BOMBERSYS_NO_BROWSER"):  # для автопроверок — без браузера
+        threading.Timer(1.0, webbrowser.open, args=[url]).start()
+    uvicorn.run(app, host=HOST, port=port, log_level="warning")
