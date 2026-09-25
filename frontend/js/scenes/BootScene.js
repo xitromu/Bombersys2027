@@ -2,6 +2,7 @@
 // tools/convert_assets.py; кадры в полосах идут с шагом «ширина + 1 пиксель разделителя».
 
 import { WIDTH, HEIGHT, textStyle } from '../layout.js';
+import { createEyeTextures } from '../enemyEyes.js';
 
 const IMAGES = [
   'gameover', 'panel', 'level_box', 'stats1', 'stats2', 'face1', 'face2',
@@ -65,6 +66,7 @@ export class BootScene extends Phaser.Scene {
     for (let tier = 0; tier < 4; tier++) {
       make(`enemy${tier}`, 'enemies', range(tier * 4, tier * 4 + 3), 6, { repeat: -1 });
     }
+    createEyeTextures(this);
     this.scene.start('menu');
   }
 }

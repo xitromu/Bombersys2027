@@ -77,6 +77,8 @@ def test_fire_kills_player_and_enemy_and_gives_score():
     run(game, BOMB_FUSE + 0.1)
     assert game.players[0].state == "dying"
     assert game.players[0].death_kind == "super"   # стоял на бомбе — эпичная смерть
+    died = [e for e in game.snapshot()["events"] if e["type"] == "player_died"]
+    assert died[0]["killer"] == 0                   # сам себя
     assert game.players[0].lives == 4
     assert not game.enemies
     assert game.players[0].score == 100     # зелёный враг

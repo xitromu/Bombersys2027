@@ -3,11 +3,14 @@
 // движение (интерполяция), чтобы картинка не дёргалась.
 
 import {
-  CELL, DEPTH, FIELD_SIZE, FIELD_X, FIELD_Y, GRID, PANEL_X, TICK_MS,
-  cellCenterX, cellCenterY, cellLeft, cellTop, textStyle,
+  CELL, DEPTH, FIELD_SIZE, FIELD_X, FIELD_Y, GRID, PANEL_X, TICK_MS, WIDTH,
+  actorDepth, cellCenterX, cellCenterY, cellLeft, cellTop, textStyle,
 } from '../layout.js';
 import { Controls } from '../controls.js';
-import { DEATH_PHRASES, EPIC_PHRASES, HAIKU, START_HAIKU, pick } from '../texts.js';
+import { EnemyEyes } from '../enemyEyes.js';
+import { CRIES, DEATH_PHRASES, EPIC_PHRASES, HAIKU, START_HAIKU, pick } from '../texts.js';
+
+const HERO_COLORS = ['#66ccff', '#99ff66'];  // Иван, Колян
 
 // Кадры ходьбы в PLAYER1.bmp: влево 0–6, вправо 7–13, вверх 14–20, вниз 21–27.
 const IDLE = { left: 0, right: 13, up: 14, down: 21 };
@@ -97,7 +100,7 @@ export class GameScene extends Phaser.Scene {
     this.playerSprites = [];
     for (let i = 0; i < this.playerCount; i++) {
       const sprite = this.add.sprite(0, 0, `player${i + 1}`, i === 0 ? IDLE.right : IDLE.left)
-        .setOrigin(0).setDepth(DEPTH.players).setVisible(false);
+        .setOrigin(0).setDepth(DEPTH.actors).setVisible(false);
       sprite.mode = null;
       this.playerSprites.push(sprite);
     }
@@ -173,8 +176,12 @@ export class GameScene extends Phaser.Scene {
     this.sync(this.flames, state.flames, (o) => `${o.x},${o.y},${o.kind}`,
       (o) => this.add.image(cellLeft(o.x), cellTop(o.y), `flame_${o.kind}`).setOrigin(0).setDepth(DEPTH.flames));
     this.sync(this.enemies, state.enemies, (o) => o.id,
-      (o) => this.add.sprite(0, 0, 'enemies').setOrigin(0).setDepth(DEPTH.enemies).play(`enemy${o.tier}`),
-      (sprite, o) => this.setTarget(sprite, o));
+      (o) => this.createEnemy(o),
+      (sprite, o) => {
+        this.setTarget(sprite, o);
+        sprite.eyes.setAlert(o.chasing);
+        sprite.look = o.look;
+      });
     this.syncPlayers(state.players);
     this.updateHud(state);
     this.updateOverlay(state);
@@ -231,6 +238,13 @@ export class GameScene extends Phaser.Scene {
     sprite.to = to;
   }
 
+  createEnemy(o) {
+    const sprite = this.add.sprite(0, 0, 'enemies').setOrigin(0).play(`enemy${o.tier}`);
+    sprite.eyes = new EnemyEyes(this);
+    sprite.once('destroy', () => sprite.eyes.destroy());
+    return sprite;
+  }
+
   syncPlayers(players) {
     players.forEach((p, i) => {
       const sprite = this.playerSprites[i];
@@ -250,6 +264,7 @@ export class GameScene extends Phaser.Scene {
         sprite.mode = 'out';
         sprite.setVisible(false);
       }
+      if (p.state === 'dead') sprite.setDepth(DEPTH.corpses);  // тело легло на пол
     });
   }
 
@@ -259,6 +274,8 @@ export class GameScene extends Phaser.Scene {
     const prefix = p.death === 'super' ? 'super' : 'death';
     sprite.setTexture(p.death === 'super' ? `superdeath${n}` : `death${n}`);
     sprite.play(`${prefix}${n}-${p.facing}`);
+    // обычная смерть — сразу на пол; при эпичной герой сначала летит поверх всех
+    sprite.setDepth(p.death === 'super' ? actorDepth(p.y) + 0.5 : DEPTH.corpses);
   }
 
   handleEvent(event) {
@@ -271,7 +288,7 @@ export class GameScene extends Phaser.Scene {
       }
       case 'enemy_killed': {
         const ghost = this.add.image(cellLeft(event.x), cellTop(event.y), 'enemies', event.tier * 4)
-          .setOrigin(0).setDepth(DEPTH.enemies).setTintFill(0xffffff);
+          .setOrigin(0).setDepth(actorDepth(event.y)).setTintFill(0xffffff);
         this.tweens.add({
           targets: ghost, alpha: 0, scaleX: 1.4, scaleY: 0.2, y: ghost.y + 30, duration: 450,
           onComplete: () => ghost.destroy(),
@@ -296,10 +313,16 @@ export class GameScene extends Phaser.Scene {
         if (event.door_unlocked) this.popup(cellCenterX(event.x), cellTop(event.y), 'Дверь открыта!', '#66ff66', 2200);
         break;
       case 'player_died': {
-        const p = this.curr.players[event.player];
+        const victim = this.curr.players[event.player];
         const phrase = pick(event.kind === 'super' ? EPIC_PHRASES : DEATH_PHRASES);
-        const x = Phaser.Math.Clamp(cellCenterX(p.x), 130, FIELD_X + FIELD_SIZE - 130);
-        this.popup(x, Math.max(40, cellTop(p.y) - 10), phrase, '#ffffff', 2800, 26);
+        this.popup(cellCenterX(victim.x), cellTop(victim.y) - 10, phrase, '#ffffff', 2800, 26);
+        // подорвал напарника — у того, кто подорвал, свой клич
+        if (event.killer !== null && event.killer !== undefined && event.killer !== event.player) {
+          const killer = this.curr.players[event.killer];
+          this.popup(cellCenterX(killer.x), cellTop(killer.y) - 40, pick(CRIES[event.killer]),
+            HERO_COLORS[event.killer], 3000, 30);
+          this.cameras.main.shake(200, 0.004);
+        }
         break;
       }
       case 'level_done':
@@ -322,11 +345,19 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  // Всплывающая надпись. Не даём ей вылезти за край: над полем — в пределах поля,
+  // над панелью — в пределах экрана; и оставляем место сверху, чтобы было куда всплыть.
   popup(x, y, text, color, duration = 1100, size = 22) {
-    const label = this.add.text(x, y, text, textStyle(size, color, { stroke: '#000000', strokeThickness: 4 }))
-      .setOrigin(0.5).setDepth(DEPTH.popups);
+    const RISE = 40;
+    const label = this.add.text(x, y, text, textStyle(size, color, {
+      stroke: '#000000', strokeThickness: 4, align: 'center', wordWrap: { width: FIELD_SIZE - 60 },
+    })).setOrigin(0.5).setDepth(DEPTH.popups);
+    const [left, right] = x < PANEL_X ? [FIELD_X, FIELD_X + FIELD_SIZE] : [PANEL_X, WIDTH];
+    const half = label.width / 2 + 6;
+    label.x = Phaser.Math.Clamp(x, left + half, Math.max(left + half, right - half));
+    label.y = Math.max(y, label.height / 2 + RISE + 6);
     this.tweens.add({
-      targets: label, y: y - 40, alpha: { from: 1, to: 0 }, ease: 'Quad.easeIn', duration,
+      targets: label, y: label.y - RISE, alpha: { from: 1, to: 0 }, ease: 'Quad.easeIn', duration,
       onComplete: () => label.destroy(),
     });
   }
@@ -366,12 +397,13 @@ export class GameScene extends Phaser.Scene {
 
     for (const sprite of this.enemies.values()) {
       const pos = lerp(sprite);
-      sprite.setPosition(cellLeft(pos.x), cellTop(pos.y));
+      sprite.setPosition(cellLeft(pos.x), cellTop(pos.y)).setDepth(actorDepth(pos.y));
+      sprite.eyes.follow(sprite, sprite.look);
     }
     for (const sprite of this.playerSprites) {
       if (sprite.mode === 'alive') {
         const pos = lerp(sprite);
-        sprite.setPosition(cellLeft(pos.x), cellTop(pos.y));
+        sprite.setPosition(cellLeft(pos.x), cellTop(pos.y)).setDepth(actorDepth(pos.y) + 0.005);
         sprite.setFrame(this.walkFrame(sprite.info, pos));
       } else if (sprite.mode === 'dying') {
         this.placeDeadBody(sprite);

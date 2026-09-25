@@ -3,6 +3,7 @@
 import { FIELD_SIZE, FIELD_X, textStyle } from '../layout.js';
 import { addButton, drawBackdrop, drawTitle } from '../backdrop.js';
 import { ACTIONS, keyLabel, loadBindings } from '../keybindings.js';
+import { EnemyEyes } from '../enemyEyes.js';
 
 const CENTER_X = FIELD_X + FIELD_SIZE / 2;
 
@@ -21,7 +22,13 @@ export class MenuScene extends Phaser.Scene {
     const replay = () => boom.setVisible(true).play('explosion');
     replay();
     this.time.addEvent({ delay: 2200, loop: true, callback: replay });
-    [[150, 0], [590, 2]].forEach(([x, tier]) => this.add.sprite(x, 205, 'enemies').play(`enemy${tier}`).setScale(1.4));
+    // Зелёный спокойно озирается, красный уже «заметил» игрока.
+    this.decor = [[150, 0, false], [590, 2, true]].map(([x, tier, alert]) => {
+      const sprite = this.add.sprite(x, 205, 'enemies').play(`enemy${tier}`).setScale(1.4);
+      const eyes = new EnemyEyes(this);
+      eyes.setAlert(alert);
+      return { sprite, eyes };
+    });
 
     this.add.rectangle(CENTER_X, 470, 560, 380, 0x000000, 0.7).setStrokeStyle(2, 0x0000c8);
     const start = (players) => {
@@ -49,5 +56,11 @@ export class MenuScene extends Phaser.Scene {
       if (players) start(players);
       if (event.code === 'KeyK') this.scene.start('keys');
     });
+  }
+
+  update(time) {
+    const angle = time / 900;
+    this.decor[0].eyes.follow(this.decor[0].sprite, [Math.cos(angle), Math.sin(angle * 0.7) * 0.6]);
+    this.decor[1].eyes.follow(this.decor[1].sprite, [-1, 0.3]);
   }
 }

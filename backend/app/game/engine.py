@@ -289,14 +289,15 @@ class Game:
             player.lives += gained
             self._emit("extra_life", player=player.index)
 
-    def _kill(self, player: Player, epic: bool) -> None:
-        """epic — погиб вплотную к бомбе: «суперсмерть», героя отбрасывает взрывом."""
+    def _kill(self, player: Player, epic: bool, killer: int | None = None) -> None:
+        """epic — погиб вплотную к бомбе: «суперсмерть», героя отбрасывает взрывом.
+        killer — чья бомба убила (None — враг или ловушка)."""
         player.state, player.state_time = "dying", 0.0
         player.wanted, player.moving = None, False
         player.lives = max(0, player.lives - 1)
         player.capacity = START_BOMBS
         player.death_kind = "super" if epic else "normal"
-        self._emit("player_died", player=player.index, kind=player.death_kind)
+        self._emit("player_died", player=player.index, kind=player.death_kind, killer=killer)
 
     def _drop_legacy(self, player: Player) -> None:
         """«Наследство» — один раз за уровень остаётся на месте погибшего."""
@@ -410,7 +411,8 @@ class Game:
             for player in self.players:
                 hit = touched_cells(player.x, player.y, HITBOX) & fire.keys()
                 if player.active and hit:
-                    self._kill(player, epic=player.cell in close)
+                    killer = fire.get(player.cell, fire[min(hit)])
+                    self._kill(player, epic=player.cell in close, killer=killer)
             for enemy in list(self.enemies.values()):
                 hit = touched_cells(enemy.x, enemy.y, HITBOX) & fire.keys()
                 if hit:
@@ -448,6 +450,16 @@ class Game:
 
     # ------------------------------------------------------------------ для браузера
 
+    @staticmethod
+    def _look(enemy: Enemy) -> list[float]:
+        """Куда смотрят глаза врага: на игрока, если гонится, иначе — куда идёт."""
+        if enemy.chasing and enemy.last_seen is not None:
+            dx, dy = enemy.last_seen[0] - enemy.x, enemy.last_seen[1] - enemy.y
+        else:
+            dx, dy = enemy.heading
+        length = math.hypot(dx, dy)
+        return [round(dx / length, 2), round(dy / length, 2)] if length > 1e-6 else [0.0, 0.0]
+
     @property
     def total_score(self) -> int:
         return sum(p.score for p in self.players)
@@ -478,7 +490,10 @@ class Game:
                 }
                 for p in self.players
             ],
-            "enemies": [{"id": e.id, "x": r(e.x), "y": r(e.y), "tier": e.tier} for e in self.enemies.values()],
+            "enemies": [
+                {"id": e.id, "x": r(e.x), "y": r(e.y), "tier": e.tier, "chasing": e.chasing, "look": self._look(e)}
+                for e in self.enemies.values()
+            ],
             "bombs": [
                 {"id": b.id, "x": b.cell[0], "y": b.cell[1], "owner": b.owner, "progress": r(1 - b.fuse / b.total)}
                 for b in self.bombs.values()

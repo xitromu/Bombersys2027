@@ -4,7 +4,8 @@ from fastapi.testclient import TestClient
 
 from app.game.engine import Game
 from app.game.board import Board
-from app.game.entities import Item
+from app.game.config import BOMB_FUSE
+from app.game.entities import Enemy, Item
 from app.main import app
 
 from .conftest import make_game, run
@@ -28,6 +29,25 @@ def test_early_turn_keeps_walking_until_passage():
     run(game, 1.2)
     player = game.players[0]
     assert player.x == 2.0 and player.y > 0.5
+
+
+def test_killer_is_reported_when_one_player_blows_up_another():
+    game = make_game(players=2, board=Board.empty())
+    ivan, kolya = game.players
+    kolya.x, kolya.y = 2.0, 0.0
+    game.place_bomb(0)
+    ivan.x, ivan.y = 0.0, 4.0
+    run(game, BOMB_FUSE + 0.1)
+    died = [e for e in game.snapshot()["events"] if e["type"] == "player_died"]
+    assert died == [{"type": "player_died", "player": 1, "kind": "normal", "killer": 0}]
+
+
+def test_enemy_eyes_look_at_chased_player():
+    game = make_game(level=10, board=Board.empty())
+    game.enemies = {1: Enemy(1, 4.0, 0.0, tier=0, speed=0, sight=9)}
+    run(game, 0.1)
+    enemy = game.snapshot()["enemies"][0]
+    assert enemy["chasing"] and enemy["look"] == [-1.0, 0.0]   # игрок слева, в (0,0)
 
 
 def test_two_players_level_continues_while_one_alive():
