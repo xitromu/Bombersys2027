@@ -1,0 +1,26 @@
+# --- Python ---
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Таблица рекордов — у каждого своя, в git не нужна
+backend/data/
+
+# --- Мусор сборки Visual C++ 6.0 в старом проекте ---
+# (сами файлы остаются на диске, просто не попадают в git)
+legacy/UMIRAYUT/Release/*.obj
+legacy/UMIRAYUT/Release/*.pch
+legacy/UMIRAYUT/Release/*.idb
+legacy/UMIRAYUT/Release/*.res
+legacy/UMIRAYUT/*.ncb
+legacy/UMIRAYUT/*.opt
+legacy/UMIRAYUT/*.aps
+legacy/UMIRAYUT/*.plg
+
+# Заставка оригинала — кадр из фильма «Мумия»: на диске лежит, в репозиторий не идёт
+legacy/start.bmp
+
+# --- Windows ---
+Thumbs.db
+desktop.ini
