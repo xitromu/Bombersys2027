@@ -4,7 +4,8 @@
 
 export const ACTIONS = ['up', 'down', 'left', 'right', 'bomb'];
 export const ACTION_NAMES = { up: 'Вверх', down: 'Вниз', left: 'Влево', right: 'Вправо', bomb: 'Бомба' };
-export const RESERVED = ['KeyP', 'Pause', 'Escape']; // пауза и выход — заняты всегда
+// пауза, выход, звук и громкость — заняты всегда
+export const RESERVED = ['KeyP', 'Pause', 'Escape', 'KeyM', 'Minus', 'Equal', 'NumpadSubtract', 'NumpadAdd'];
 
 export const DEFAULT_BINDINGS = [
   { up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD', bomb: 'Space' },

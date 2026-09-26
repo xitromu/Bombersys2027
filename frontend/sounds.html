@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BOMBERSYS — звуки</title>
+  <link rel="icon" href="assets/icon.png">
+  <style>
+    body { margin: 0; padding: 16px; background: #0b0820; color: #e8e6ff; font: 15px Arial, sans-serif; }
+    h1 { margin: 0 0 4px; color: #ffcc00; font-size: 24px; }
+    h2 { margin: 24px 0 4px; color: #66ccff; font-size: 18px; }
+    .hint { margin: 0 0 8px; color: #9994c0; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+    button {
+      display: flex; flex-direction: column; gap: 3px; padding: 8px 10px; text-align: left;
+      color: #fff; background: #1c1650; border: 1px solid #5566cc; border-radius: 6px; cursor: pointer; font: inherit;
+    }
+    button:hover { background: #2a2270; }
+    button.on { background: #0d5a2a; border-color: #66ff66; }
+    button span { color: #aaa6d8; font-size: 12px; }
+    #report { white-space: pre; font: 13px Consolas, monospace; }
+  </style>
+</head>
+<body>
+  <h1>BOMBERSYS — проверка звуков</h1>
+  <p class="hint">Страница для настройки озвучки. Скажите, что звучит не так, — поправим ноты или параметры.</p>
+  <div id="app"></div>
+  <pre id="report"></pre>
+  <script type="module" src="js/audio/soundtest.js"></script>
+</body>
+</html>

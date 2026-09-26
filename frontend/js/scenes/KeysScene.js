@@ -43,6 +43,8 @@ export class KeysScene extends Phaser.Scene {
     });
 
     this.hint = this.add.text(CENTER_X, 530, '', textStyle(19, '#cccccc', { align: 'center' })).setOrigin(0.5);
+    this.add.text(CENTER_X, 568, 'Заняты всегда:  P — пауза,  Esc — меню,  M — звук,  − / + — громкость',
+      textStyle(17, '#8888aa')).setOrigin(0.5);
     addButton(this, CENTER_X - 140, 620, 'Сбросить (R)', () => this.reset(), 24);
     addButton(this, CENTER_X + 140, 620, 'Готово (Esc)', () => this.done(), 24);
 
@@ -59,7 +61,7 @@ export class KeysScene extends Phaser.Scene {
       if (event.code === 'Escape') {
         this.capturing = false;
       } else if (RESERVED.includes(event.code)) {
-        this.message = `${keyLabel(event.code)} занята: P — пауза, Esc — выход`;
+        this.message = `${keyLabel(event.code)} занята: P — пауза, Esc — выход, M — звук, −/+ — громкость`;
       } else {
         this.assign(event.code);
       }

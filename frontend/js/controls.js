@@ -1,14 +1,16 @@
 // Клавиатура во время игры. Клавиши берутся из настроек (keybindings.js).
-// В игре на одного обе раскладки управляют Иваном.
+// В игре на одного обе раскладки управляют Иваном. В игре по сети обе раскладки
+// управляют своим героем (seat): каждый играет на своём ноутбуке.
 
 import { loadBindings } from './keybindings.js';
 
 const DIRECTIONS = ['left', 'right', 'up', 'down'];
 
 export class Controls {
-  constructor(scene, players, net, { onPause, onQuit }) {
+  constructor(scene, players, net, { onPause, onQuit }, seat = null) {
     this.net = net;
     this.players = players;
+    this.seat = seat;
     this.bindings = loadBindings();
     // Для каждого игрока — стопка зажатых направлений. Идём туда, что нажато последним;
     // отпустили — возвращаемся к предыдущему (как savemove в оригинале).
@@ -41,6 +43,7 @@ export class Controls {
   }
 
   playerFor(set) {
+    if (this.seat !== null) return this.seat;
     return this.players === 1 ? 0 : set;
   }
 
@@ -63,7 +66,8 @@ export class Controls {
   }
 
   releaseAll() {
-    for (let player = 0; player < this.players; player++) {
+    const mine = this.seat !== null ? [this.seat] : [...Array(this.players).keys()];
+    for (const player of mine) {
       this.held[player] = [];
       this.sendDir(player);
     }

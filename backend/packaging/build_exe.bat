@@ -7,4 +7,5 @@ uv run --group build pyinstaller --noconfirm --onefile --name BOMBERSYS ^
   --icon packaging\bombersys.ico ^
   --add-data "..\frontend;frontend" ^
   --collect-submodules uvicorn --collect-submodules websockets ^
+  --copy-metadata bombersys ^
   packaging\bombersys_exe.py

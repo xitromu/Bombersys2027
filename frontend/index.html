@@ -8,18 +8,25 @@
   <style>
     html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
     #game { width: 100vw; height: 100vh; }
-    #fullscreen {
-      position: fixed; right: 10px; bottom: 10px; z-index: 10;
+    .corner { position: fixed; right: 10px; z-index: 10; display: flex; gap: 4px; }
+    .corner button {
       padding: 6px 12px; font: 15px Arial, sans-serif; color: #fff;
       background: rgba(20, 10, 60, 0.6); border: 1px solid #5566cc; border-radius: 6px;
       cursor: pointer; opacity: 0.55;
     }
-    #fullscreen:hover { opacity: 1; }
+    .corner button:hover { opacity: 1; }
   </style>
 </head>
 <body>
   <div id="game"></div>
-  <button id="fullscreen" type="button" tabindex="-1">⛶ На весь экран</button>
+  <div class="corner" style="bottom: 48px">
+    <button id="volume-down" type="button" tabindex="-1" title="Тише (клавиша −)">−</button>
+    <button id="sound" type="button" tabindex="-1" title="Звук и музыка (клавиша M)"></button>
+    <button id="volume-up" type="button" tabindex="-1" title="Громче (клавиша +)">+</button>
+  </div>
+  <div class="corner" style="bottom: 10px">
+    <button id="fullscreen" type="button" tabindex="-1">⛶ На весь экран</button>
+  </div>
   <!-- Phaser — движок 2D-игр; лежит в проекте, чтобы игра работала без интернета -->
   <script src="vendor/phaser.min.js"></script>
   <script type="module" src="js/main.js"></script>

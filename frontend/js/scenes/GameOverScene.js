@@ -1,6 +1,7 @@
 // Экран GAME OVER: результат партии и таблица рекордов (хранится на сервере).
 
 import { WIDTH, textStyle } from '../layout.js';
+import { sound } from '../audio/sound.js';
 
 export class GameOverScene extends Phaser.Scene {
   constructor() {
@@ -13,6 +14,9 @@ export class GameOverScene extends Phaser.Scene {
 
   create() {
     const { level, score, records = [] } = this.result;
+    if (score > 0 && records.some((r) => r.score === score && r.level === level)) {
+      this.time.delayedCall(1500, () => sound.say('female_new_highscore'));  // попали в таблицу рекордов
+    }
     this.add.image(0, 0, 'gameover').setOrigin(0);
 
     this.add.rectangle(40, 30, 420, 60 + 28 * Math.max(records.length, 1) + 70, 0x000000, 0.7)

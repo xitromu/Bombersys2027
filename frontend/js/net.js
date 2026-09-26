@@ -7,6 +7,7 @@ export class Net {
     this.url = `${protocol}://${location.host}/ws`;
     this.stateListeners = new Set();
     this.statusListeners = new Set();
+    this.messageListeners = new Set();
     this.connected = false;
     this.connect();
   }
@@ -17,6 +18,7 @@ export class Net {
     this.socket.onmessage = (event) => {
       const message = JSON.parse(event.data);
       if (message.type === 'state') this.stateListeners.forEach((fn) => fn(message));
+      else this.messageListeners.forEach((fn) => fn(message));  // игра по сети: hosting, joined, left, error
     };
     this.socket.onclose = () => {
       this.setConnected(false);
@@ -37,6 +39,11 @@ export class Net {
   onState(fn) {
     this.stateListeners.add(fn);
     return () => this.stateListeners.delete(fn);
+  }
+
+  onMessage(fn) {
+    this.messageListeners.add(fn);
+    return () => this.messageListeners.delete(fn);
   }
 
   onStatus(fn) {

@@ -3,11 +3,14 @@
 // движение (интерполяция), чтобы картинка не дёргалась.
 
 import {
-  CELL, DEPTH, FIELD_SIZE, FIELD_X, FIELD_Y, GRID, PANEL_X, TICK_MS, WIDTH,
+  CELL, DEPTH, FIELD_SIZE, FIELD_X, FIELD_Y, GRID, HEIGHT, PANEL_X, TICK_MS, WIDTH,
   actorDepth, cellCenterX, cellCenterY, cellLeft, cellTop, textStyle,
 } from '../layout.js';
 import { Controls } from '../controls.js';
 import { EnemyEyes } from '../enemyEyes.js';
+import { GameAudio } from '../audio/gameAudio.js';
+import { sound } from '../audio/sound.js';
+import { gameVersion } from '../version.js';
 import { CRIES, DEATH_PHRASES, EPIC_PHRASES, HAIKU, START_HAIKU, pick } from '../texts.js';
 
 const HERO_COLORS = ['#66ccff', '#99ff66'];  // Иван, Колян
@@ -33,6 +36,7 @@ export class GameScene extends Phaser.Scene {
 
   init(data) {
     this.playerCount = data.players;
+    this.seat = data.seat ?? null;   // игра по сети: 0 — я Иван, 1 — я Колян; null — своя игра
   }
 
   create() {
@@ -45,6 +49,7 @@ export class GameScene extends Phaser.Scene {
     this.bombs = new Map();
     this.flames = new Map();
     this.enemies = new Map();
+    this.audio = new GameAudio();
 
     this.drawField();
     this.createPlayers();
@@ -53,7 +58,7 @@ export class GameScene extends Phaser.Scene {
     this.controls = new Controls(this, this.playerCount, this.net, {
       onPause: () => this.net.send({ type: 'pause' }),
       onQuit: () => this.quit(),
-    });
+    }, this.seat);
     const offState = this.net.onState((state) => this.onState(state));
     const offStatus = this.net.onStatus((ok) => {
       if (!ok && !this.finished) {
@@ -62,13 +67,24 @@ export class GameScene extends Phaser.Scene {
         this.time.delayedCall(2000, () => this.scene.start('menu'));
       }
     });
+    // игра по сети: второй вышел — партия окончена
+    const offMessage = this.net.onMessage((message) => {
+      if (message.type === 'left' && !this.finished) {
+        this.finished = true;
+        this.message.setText(`${message.name} вышел из игры`);
+        this.time.delayedCall(2500, () => this.scene.start('menu'));
+      }
+    });
     this.events.once('shutdown', () => {
       offState();
       offStatus();
+      offMessage();
       this.controls.destroy();
+      sound.pause(false);  // вышли из игры на паузе — музыка меню не должна остаться приглушённой
     });
 
-    this.net.send({ type: 'start', players: this.playerCount });
+    // в игре по сети партию уже запустил сервер, когда пришёл второй игрок
+    if (this.seat === null) this.net.send({ type: 'start', players: this.playerCount });
   }
 
   quit() {
@@ -132,6 +148,13 @@ export class GameScene extends Phaser.Scene {
 
     this.createHaikuPanel();
 
+    // номер версии — мелко в самом низу панели
+    const versionText = this.add.text(WIDTH - 8, HEIGHT - 2, '', textStyle(12, '#8888aa'))
+      .setOrigin(1, 1).setDepth(top);
+    gameVersion.then((version) => {
+      if (version && versionText.active) versionText.setText(`v${version}`);
+    });
+
     this.readyImage = this.add.image(250, 340, 'ready').setOrigin(0).setDepth(DEPTH.overlay).setVisible(false);
     this.pauseImage = this.add.image(315, 340, 'pause').setOrigin(0).setDepth(DEPTH.overlay).setVisible(false);
     this.message = this.add.text(FIELD_X + FIELD_SIZE / 2, 290, '',
@@ -165,6 +188,7 @@ export class GameScene extends Phaser.Scene {
     this.curr = state;
     this.currAt = performance.now();
 
+    this.audio.update(state);
     for (const event of state.events) this.handleEvent(event);
     this.syncWalls(state.grid);
     this.sync(this.items, state.items, (o) => o.id,
@@ -370,7 +394,7 @@ export class GameScene extends Phaser.Scene {
     this.totalText.setText(`Очки: ${state.players.reduce((sum, p) => sum + p.score, 0)}`);
     state.players.forEach((p, i) => {
       const hud = this.hud[i];
-      hud.name.setText(p.name);
+      hud.name.setText(i === this.seat ? `${p.name} (вы)` : p.name);
       hud.score.setText(String(p.score));
       hud.lives.setText(String(p.lives));
       hud.bombs.setText(String(p.bombs));

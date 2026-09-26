@@ -277,7 +277,7 @@ class Game:
         elif kind == "life":
             player.lives += 1
         elif kind == "death":
-            self._kill(player, epic=False)
+            self._kill(player, epic=False, cause="trap")
         else:
             self._add_score(player, ITEM_SCORES[kind])
 
@@ -289,15 +289,15 @@ class Game:
             player.lives += gained
             self._emit("extra_life", player=player.index)
 
-    def _kill(self, player: Player, epic: bool, killer: int | None = None) -> None:
+    def _kill(self, player: Player, epic: bool, cause: str, killer: int | None = None) -> None:
         """epic — погиб вплотную к бомбе: «суперсмерть», героя отбрасывает взрывом.
-        killer — чья бомба убила (None — враг или ловушка)."""
+        cause — от чего: "bomb", "enemy" или "trap"; killer — чья бомба убила (None — враг или ловушка)."""
         player.state, player.state_time = "dying", 0.0
         player.wanted, player.moving = None, False
         player.lives = max(0, player.lives - 1)
         player.capacity = START_BOMBS
         player.death_kind = "super" if epic else "normal"
-        self._emit("player_died", player=player.index, kind=player.death_kind, killer=killer)
+        self._emit("player_died", player=player.index, kind=player.death_kind, cause=cause, killer=killer)
 
     def _drop_legacy(self, player: Player) -> None:
         """«Наследство» — один раз за уровень остаётся на месте погибшего."""
@@ -412,7 +412,7 @@ class Game:
                 hit = touched_cells(player.x, player.y, HITBOX) & fire.keys()
                 if player.active and hit:
                     killer = fire.get(player.cell, fire[min(hit)])
-                    self._kill(player, epic=player.cell in close, killer=killer)
+                    self._kill(player, epic=player.cell in close, cause="bomb", killer=killer)
             for enemy in list(self.enemies.values()):
                 hit = touched_cells(enemy.x, enemy.y, HITBOX) & fire.keys()
                 if hit:
@@ -430,7 +430,7 @@ class Game:
             if player.active and any(
                 math.hypot(player.x - e.x, player.y - e.y) < ENEMY_TOUCH_DISTANCE for e in self.enemies.values()
             ):
-                self._kill(player, epic=False)
+                self._kill(player, epic=False, cause="enemy")
 
     def _check_level_end(self) -> None:
         if any(p.state in ("alive", "dying") for p in self.players):

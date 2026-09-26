@@ -39,7 +39,23 @@ def test_killer_is_reported_when_one_player_blows_up_another():
     ivan.x, ivan.y = 0.0, 4.0
     run(game, BOMB_FUSE + 0.1)
     died = [e for e in game.snapshot()["events"] if e["type"] == "player_died"]
-    assert died == [{"type": "player_died", "player": 1, "kind": "normal", "killer": 0}]
+    assert died == [{"type": "player_died", "player": 1, "kind": "normal", "cause": "bomb", "killer": 0}]
+
+
+def test_death_cause_tells_enemy_from_trap():
+    """По причине смерти игра выбирает звук: над жертвой призрака призраки злорадствуют."""
+    game = make_game(board=Board.empty())
+    game.enemies = {1: Enemy(1, 0.0, 0.0, tier=0, speed=0, sight=9)}   # стоит прямо на герое
+    run(game, 0.1)
+    died = [e for e in game.snapshot()["events"] if e["type"] == "player_died"]
+    assert died[0]["cause"] == "enemy" and died[0]["killer"] is None
+
+    game = make_game(board=Board.empty())
+    game.items = {1: Item(1, (1, 0), "death")}
+    game.set_direction(0, "right")
+    run(game, 1.0)
+    died = [e for e in game.snapshot()["events"] if e["type"] == "player_died"]
+    assert died[0]["cause"] == "trap"
 
 
 def test_enemy_eyes_look_at_chased_player():
@@ -52,7 +68,7 @@ def test_enemy_eyes_look_at_chased_player():
 
 def test_two_players_level_continues_while_one_alive():
     game = make_game(players=2, board=Board.empty())
-    game._kill(game.players[0], epic=False)
+    game._kill(game.players[0], epic=False, cause="enemy")
     run(game, 3.0)
     assert game.phase == "playing"          # Колян ещё в игре
 
@@ -60,7 +76,7 @@ def test_two_players_level_continues_while_one_alive():
 def test_game_over_when_lives_run_out():
     game = make_game(board=Board.empty())
     game.players[0].lives = 1
-    game._kill(game.players[0], epic=False)
+    game._kill(game.players[0], epic=False, cause="enemy")
     run(game, 4.0)
     assert game.phase == "game_over"
 
@@ -98,3 +114,5 @@ def test_frontend_is_served():
     client = TestClient(app)
     assert client.get("/").status_code == 200
     assert client.get("/api/difficulty").json()[0]["level"] == 1
+    assert client.get("/sounds/voice/fighter_ready.ogg").status_code == 200   # голоса попадают в игру
+    assert client.get("/api/version").json()["version"] != "?"              # номер версии для меню

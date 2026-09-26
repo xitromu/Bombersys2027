@@ -1,6 +1,6 @@
 [project]
 name = "bombersys"
-version = "0.3.1"
+version = "0.4.0"
 description = "Bomberman 2005 года, возрождённый: игровой сервер на Python и браузерный клиент"
 requires-python = ">=3.11"
 dependencies = [
