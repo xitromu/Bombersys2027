@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Формулы по физике — 9 класс</title>
+<script>
+    MathJax = {
+        tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+        svg: { fontCache: 'global' }
+    };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+        min-height: 100vh;
+        padding: 30px 20px;
+        color: #333;
+    }
+    .container {
+        max-width: 1100px;
+        margin: 0 auto;
+    }
+    h1 {
+        text-align: center;
+        color: #fff;
+        font-size: 2.2em;
+        margin-bottom: 10px;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+    .subtitle {
+        text-align: center;
+        color: #d0e0ff;
+        font-size: 1.1em;
+        margin-bottom: 30px;
+    }
+    .block {
+        background: #fff;
+        border-radius: 16px;
+        padding: 25px 30px;
+        margin-bottom: 25px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+    }
+    .block-title {
+        font-size: 1.4em;
+        color: #1e3c72;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 3px solid #2a5298;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .block-title .icon { font-size: 1.3em; }
+    .formula-card {
+        background: #f0f4ff;
+        border-left: 5px solid #2a5298;
+        border-radius: 8px;
+        padding: 15px 20px;
+        margin-bottom: 15px;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .formula-card:hover {
+        transform: translateX(5px);
+        box-shadow: 0 4px 15px rgba(42,82,152,0.2);
+    }
+    .formula-number {
+        display: inline-block;
+        background: #2a5298;
+        color: #fff;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        text-align: center;
+        line-height: 30px;
+        font-weight: bold;
+        font-size: 0.9em;
+        margin-right: 10px;
+    }
+    .formula-name {
+        font-weight: bold;
+        color: #1e3c72;
+        font-size: 1.05em;
+        margin-bottom: 5px;
+    }
+    .formula-math {
+        font-size: 1.3em;
+        margin: 10px 0;
+        padding: 10px;
+        background: #fff;
+        border-radius: 6px;
+        text-align: center;
+    }
+    .formula-desc {
+        color: #555;
+        font-size: 0.95em;
+        line-height: 1.6;
+    }
+    .formula-desc b { color: #1e3c72; }
+    .example {
+        background: #fffbe6;
+        border-left: 4px solid #f0c040;
+        padding: 10px 15px;
+        margin-top: 10px;
+        border-radius: 0 6px 6px 0;
+        font-size: 0.93em;
+        color: #555;
+    }
+    .example b { color: #b8860b; }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+        font-size: 0.95em;
+    }
+    th, td {
+        border: 1px solid #c0d0e8;
+        padding: 10px 12px;
+        text-align: left;
+    }
+    th {
+        background: #2a5298;
+        color: #fff;
+    }
+    tr:nth-child(even) { background: #f0f4ff; }
+    tr:hover { background: #dde6f8; }
+    .footer {
+        text-align: center;
+        color: #a0c0e0;
+        margin-top: 20px;
+        font-size: 0.9em;
+    }
+    @media (max-width: 600px) {
+        body { padding: 15px 10px; }
+        .block { padding: 15px; }
+        h1 { font-size: 1.5em; }
+        .formula-math { font-size: 1.1em; }
+    }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>📐 Формулы по физике</h1>
+<p class="subtitle">Кинематика — 9 класс | Все формулы с доски с объяснениями</p>
+
+<!-- БЛОК 1 -->
+<div class="block">
+    <div class="block-title"><span class="icon">🚗</span> Блок 1: Равноускоренное движение (формулы 1–7)</div>
+
+    <div class="formula-card">
+        <div class="formula-name"><span class="formula-number">1</span> Уравнение координаты при равноускоренном движении</div>
+        <div class="formula-math">$$x(t) = x_0 + v_{0x}\,t + \frac{a_x\,t^2}{2}$$</div>
+        <div class="formula-desc">
+            <b>$x(t)$</b> — координата тела в момент времени $t$;<br>
+            <b>$x_0$</b> — начальная координата;<br>
+            <b>$v_{0x}$</b> — проекция начальной скорости на ось $X$;<br>
+            <b>$a_x$</b> — проекция ускорения на ось $X$;<br>
+            <b>$t$</b> — время.
+        </div>
+        <div class="example"><b>Пример:</b> Машина стартует с места ($x_0=0$, $v_0=0$) с ускорением $2$ м/с². Через 3 с: $x = 0 + 0 + \frac{2\cdot 9}{2} = 9$ м.</div>
+    </div>
+
+    <div class="formula-card">
+        <div class="formula-name"><span class="formula-number">2</span> Путь при равномерном движении</div>
+        <div class="formula-math">$$s(t) = s_0 + v\,t$$</div>
+        <div class="formula-desc">
+            <b>$s(t)$</b> — пройденный путь;<br>
+            <b>$s_0$</b> — начальный путь (обычно 0);<br>
+            <b>$v$</b> — постоянная скорость;<br>
+            <b>$t$</b> — время.
+        </div>
+        <div class="example"><b>Пример:</b> Идёшь со скоростью 5 км/ч. За 2 ч пройдёшь $s = 5 \cdot 2 = 10$ км.</div>
+    </div>
+
+    <div class="formula-card">
+        <div class="formula-name"><span class="formula-number">3</span> Уравнение координаты (повтор формулы 1)</div>
+        <div class="formula-math">$$x(t) = x_0 + v_{0x}\,t + \frac{a_x\,t^2}{2}$$</div>
+        <div class="formula-desc">Та же формула, что и №1 — записана для закрепления.</div>
+    </div>
+
+    <div class="formula-card">
+        <div class="formula-name"><span class="formula-number">4</span> Путь при равноускоренном движении</div>
+        <div class="formula-math">$$s(t) = s_0 + v_0\,t + \frac{a\,t^2}{2}$$</div>
+        <div class="formula-desc">
+            <b>$s(t)$</b> — пройденный путь;<br>
+            <b>$s_0$</b> — начальный путь;<br>
+            <b>$v_0$</b> — начальная скорость;<br>
+            <b>$a$</b> — ускорение;<br>
+            <b>$t$</b> — время.
+        </div>
+        <div class="example"><b>Пример:</b> Велосипедист разгоняется с 2 м/с, ускорение 1 м/с². За 4 с: $s = 0 + 2\cdot4 + \frac{1\cdot16}{2} = 16$ м.</div>
+    </div>
+
+    <div class="formula-card">
+        <div class="formula-name"><span class="formula-number">5</span> Путь через среднюю скорость</div>
+        <div class="formula-math">$$s(t) = \frac{1}{2}(v + v_0)\,t$$</div>
+        <div class="formula-desc">
+            $\dfrac{v + v_0}{2}$ — это <b>средняя скорость</b> (среднее арифметическое начальной и конечной).<br>
+            Удобно, когда известны обе скорости и время.
+        </div>
+        <div class="example"><b>Пример:</b> Разогнался с 0 до 10 м/с за 5 с. Путь: $s = \frac{1}{2}(10+0)\cdot5 = 25$ м.</div>
+    </div>
+
+    <div class="formula-card">
+        <div class="formula-name"><span class="formula-number">6</span> Путь без времени</div>
+        <div class="formula-math">$$s(t) = \frac{v^2 - v_0^2}{2a}$$</div>
+        <div class="formula-desc">
+            Очень удобная формула, когда <b>не знаешь время</b>, но знаешь скорости и ускорение.<br>
+            <b>$v$</b> — конечная скорость, <b>$v_0$</b> — начальная, <b>$a$</b> — ускорение.
+        </div>
+        <div class="example"><b>Пример:</b> Машина тормозит с 20 м/с до 0, ускорение $-5$ м/с². Тормозной путь: $s = \frac{0-400}{2\cdot(-5)} = 40$ м.</div>
+    </div>
+
+    <div class="formula-card">
+        <div class="formula-name"><span class="formula-number">7</span> Скорость при равноускоренном движении</div>
+        <div class="formula-math">$$v_x(t) = v_{0x} + a_x\,t$$</div>
+        <div class="formula-desc">
+            Показывает, какой будет скорость через время $t$.<br>
+            <b>$v_x(t)$</b> — скорость в момент $t$; <b>$v_{0x}$</b> — начальная; <b>$a_x$</b> — ускорение.
+        </div>
+        <div class="example"><b>Пример:</b> Мяч брошен вверх со скоростью 10 м/с, $g=10$ м/с². Через 1 с: $v = 10 + (-10)\cdot1 = 0$ м/с — верхняя точка!</div>
+    </div>
+</div>
+
+<!-- БЛОК 2 -->
+<div class="block">
+    <div class="block-title"><span class="icon">🍎</span> Блок 2: Свободное падение и движение по вертикали (формулы 8–14)</div>
+
+    <div class="formula-card">
+        <div class="formula-name"><span class="formula-number">8</span> Скорость (общая форма)</div>
+        <div class="formula-math">$$v(t) = v_0 + a\,t$$</div>
+        <div class="formula-desc">Та же формула, что и №7, но без проекций на оси — в более простом виде.</div>
+    </div>
+
+    <div class="formula-card">
+        <div class="formula-name"><span class="formula-number">9</span> Координата при свободном падении (без начальной скорости)</div>
+        <div class="formula-math">$$y(t) = h - \frac{g\,t^2}{2}$$</div>
+        <div class="formula-desc">
+            Тело просто отпустили (начальная скорость = 0).<br>
+            <b>$y(t)$</b> — высота над землёй; <b>$h$</b> — начальная высота;<br>
+            <b>$g \approx 9{,}8$ м/с²</b> — ускорение свободного падения.
+        </div>
+        <div class="example"><b>Пример:</b> Яблоко падает с высоты 5 м. Через 1 с: $y = 5 - \frac{10\cdot1}{2} = 0$ м — упало!</div>
+    </div>
+
+    <div class="formula-card">
+        <div class="formula-name"><span class="formula-number">10</span> Координата тела, брошенного <u>вниз</u></div>
+        <div class="formula-math">$$y(t) = h - v_{0y}\,t - \frac{g\,t^2}{2}$$</div>
+        <div class="formula-desc">
+            Начальная скорость направлена <b>вниз</b>, поэтому перед $v_{0y}t$ стоит минус.<br>
+            <b>$v_{0y}$</b> — начальная скорость (вниз).
+        </div>
+        <div class="example"><b>Пример:</b> Камень брошен вниз с высоты 20 м со скоростью 5 м/с. Через 1 с: $y = 20 - 5 - 5 = 10$ м.</div>
+    </div>
+
+    <div class="formula-card">
+        <div class="formula-name"><span class="formula-number">11</span> Координата тела, брошенного <u>вверх</u></div>
+        <div class="formula-math">$$y(t) = h + v_{0y}\,t - \frac{g\,t^2}{2}$$</div>
+        <div class="formula-desc">
+            Начальная скорость направлена <b>вверх</b>, поэтому перед $v_{0y}t$ стоит <b>плюс</b>.<br>
+            $g$ тянет вниз, поэтому $-\dfrac{gt^2}{2}$.
+        </div>
+        <div class="example"><b>Пример:</b> Мяч брошен вверх с высоты 2 м со скоростью 10 м/с. Через 1 с: $y = 2 + 10 - 5 = 7$ м.</div>
+    </div>
+
+    <div class="formula-card">
+        <div class="formula-name"><span class="formula-number">12</span> Период</div>
+        <div class="formula-math">$$T = \frac{t}{n}$$</div>
+        <div class="formula-desc">
+            <b>$T$</b> — период (время одного полного оборота или колебания), с;<br>
+            <b>$t$</b> — общее время; <b>$n$</b> — количество оборотов.
+        </div>
+        <div class="example"><b>Пример:</b> Колесо сделало 10 оборотов за 5 с. $T = 5/10 = 0{,}5$ с.</div>
+    </div>
+
+    <div class="formula-card">
+        <div class="formula-name"><span class="formula-number">13</span> Частота</div>
+        <div class="formula-math">$$\nu = \frac{n}{t} = \frac{1}{T}$$</div>
+        <div class="formula-desc">
+            <b>$\nu$ (ню)</b> — частота, сколько оборотов в секунду. Измеряется в <b>Герцах (Гц)</b>.<br>
+            Частота и период — обратные величины.
+        </div>
+        <div class="example"><b>Пример:</b> Если $T = 0{,}5$ с, то $\nu = 1/0{,}5 = 2$ Гц — 2 оборота в секунду.</div>
+    </div>
+
+    <div class="formula-card">
+        <div class="formula-name"><span class="formula-number">14</span> Линейная скорость при движении по окружности</div>
+        <div class="formula-math">$$v = \frac{2\pi R}{T} = 2\pi R\,\nu$$</div>
+        <div class="formula-desc">
+            $2\pi R$ — длина окружности (путь за один оборот).<br>
+            <b>$v$</b> — линейная скорость (м/с); <b>$R$</b> — радиус; <b>$T$</b> — период; <b>$\nu$</b> — частота.
+        </div>
+        <div class="example"><b>Пример:</b> Карусель $R=3$ м, оборот за 6 с. $v = \frac{2\cdot3{,}14\cdot3}{6} \approx 3{,}14$ м/с.</div>
+    </div>
+</div>
+
+<!-- БЛОК 3 -->
+<div class="block">
+    <div class="block-title"><span class="icon">🎡</span> Блок 3: Движение по окружности (формулы 15–21)</div>
+
+    <div class="formula-card">
+        <div class="formula-name"><span class="formula-number">15</span> Длина дуги окружности</div>
+        <div class="formula-math">$$l = R\,\Delta\varphi$$</div>
+        <div class="formula-desc">
+            <b>$l$</b> — длина дуги (м); <b>$R$</b> — радиус (м);<br>
+            <b>$\Delta\varphi$</b> — угол поворота в <b>радианах</b>.
+        </div>
+        <div class="example"><b>Пример:</b> Колесо $R=0{,}5$ м повернулось на $\pi$ рад (180°). $l = 0{,}5\cdot3{,}14 \approx 1{,}57$ м.</div>
+    </div>
+
+    <div class="formula-card">
+        <div class="formula-name"><span class="formula-number">16</span> Угловая скорость</div>
+        <div class="formula-math">$$\omega = \frac{\Delta\varphi}{\Delta t}$$</div>
+        <div class="formula-desc">
+            <b>$\omega$ (омега)</b> — угловая скорость (рад/с);<br>
+            показывает, насколько быстро тело поворачивается.
+        </div>
+        <div class="example"><b>Пример:</b> Колесо повернулось на $2\pi$ рад за 2 с. $\omega = 2\pi/2 = \pi \approx 3{,}14$ рад/с.</div>
+    </div>
+
+    <div class="formula-card">
+        <div class="formula-name"><span class="formula-number">17</span> Угловая скорость через частоту и период</div>
+        <div class="formula-math">$$\omega = 2\pi\nu = \frac{2\pi}{T}$$</div>
+        <div class="formula-desc">
+            $2\pi$ — полный оборот в радианах.<br>
+            Связывает угловую скорость с частотой $\nu$ и периодом $T$.
+        </div>
+        <div class="example"><b>Пример:</b> $\nu = 3$ Гц → $\omega = 2\pi\cdot3 = 6\pi \approx 18{,}84$ рад/с.</div>
+    </div>
+
+    <div class="formula-card">
+        <div class="formula-name"><span class="formula-number">18</span> Связь линейной и угловой скорости</div>
+        <div class="formula-math">$$v = \omega\,R$$</div>
+        <div class="formula-desc">
+            <b>$v$</b> — линейная скорость (м/с); <b>$\omega$</b> — угловая (рад/с); <b>$R$</b> — радиус (м).<br>
+            Чем дальше от центра — тем больше линейная скорость.
+        </div>
+        <div class="example"><b>Пример:</b> Карусель $R=4$ м, $\omega=0{,}5$ рад/с. $v = 0{,}5\cdot4 = 2$ м/с.</div>
+    </div>
+
+    <div class="formula-card">
+        <div class="formula-name"><span class="formula-number">19</span> Центростремительное ускорение</div>
+        <div class="formula-math">$$a_y = \frac{v^2}{R} = \omega^2 R$$</div>
+        <div class="formula-desc">
+            Ускорение, которое «прижимает» тело к центру окружности.<br>
+            <b>$a_y$</b> — центростремительное ускорение (м/с²).
+        </div>
+        <div class="example"><b>Пример:</b> Машина на закруглении $R=50$ м, $v=10$ м/с. $a = 100/50 = 2$ м/с².</div>
+    </div>
+
+    <div class="formula-card">
+        <div class="formula-name"><span class="formula-number">20</span> Период через центростремительное ускорение</div>
+        <div class="formula-math">$$T = 2\pi\sqrt{\frac{R}{a_y}}$$</div>
+        <div class="formula-desc">
+            Выводится из формулы $a = \dfrac{4\pi^2 R}{T^2}$, если выразить $T$.
+        </div>
+    </div>
+
+    <div class="formula-card">
+        <div class="formula-name"><span class="formula-number">21</span> Частота через центростремительное ускорение</div>
+        <div class="formula-math">$$\nu = \frac{1}{2\pi}\sqrt{\frac{a_y}{R}}$$</div>
+        <div class="formula-desc">
+            Это обратная величина к формуле 20: $\nu = \dfrac{1}{T}$.
+        </div>
+    </div>
+</div>
+
+<!-- ШПАРГАЛКА -->
+<div class="block">
+    <div class="block-title"><span class="icon">📋</span> Краткая шпаргалка — все формулы в таблице</div>
+    <table>
+        <tr><th>№</th><th>Формула</th><th>Что описывает</th></tr>
+        <tr><td>1, 3</td><td>$x = x_0 + v_0 t + \dfrac{at^2}{2}$</td><td>Где будет тело?</td></tr>
+        <tr><td>2</td><td>$s = s_0 + vt$</td><td>Путь при равномерном движении</td></tr>
+        <tr><td>4</td><td>$s = s_0 + v_0 t + \dfrac{at^2}{2}$</td><td>Путь при равноускоренном</td></tr>
+        <tr><td>5</td><td>$s = \dfrac{(v+v_0)t}{2}$</td><td>Путь через среднюю скорость</td></tr>
+        <tr><td>6</td><td>$s = \dfrac{v^2 - v_0^2}{2a}$</td><td>Путь без времени</td></tr>
+        <tr><td>7, 8</td><td>$v = v_0 + at$</td><td>Скорость через время</td></tr>
+        <tr><td>9</td><td>$y = h - \dfrac{gt^2}{2}$</td><td>Свободное падение</td></tr>
+        <tr><td>10</td><td>$y = h - v_0 t - \dfrac{gt^2}{2}$</td><td>Бросок вниз</td></tr>
+        <tr><td>11</td><td>$y = h + v_0 t - \dfrac{gt^2}{2}$</td><td>Бросок вверх</td></tr>
+        <tr><td>12</td><td>$T = t/n$</td><td>Период</td></tr>
+        <tr><td>13</td><td>$\nu = n/t = 1/T$</td><td>Частота</td></tr>
+        <tr><td>14</td><td>$v = 2\pi R/T$</td><td>Скорость по окружности</td></tr>
+        <tr><td>15</td><td>$l = R\,\Delta\varphi$</td><td>Длина дуги</td></tr>
+        <tr><td>16</td><td>$\omega = \Delta\varphi/\Delta t$</td><td>Угловая скорость</td></tr>
+        <tr><td>17</td><td>$\omega = 2\pi\nu = 2\pi/T$</td><td>Угловая скорость через $\nu$ и $T$</td></tr>
+        <tr><td>18</td><td>$v = \omega R$</td><td>Связь линейной и угловой скорости</td></tr>
+        <tr><td>19</td><td>$a = v^2/R = \omega^2 R$</td><td>Центростремительное ускорение</td></tr>
+        <tr><td>20</td><td>$T = 2\pi\sqrt{R/a}$</td><td>Период через ускорение</td></tr>
+        <tr><td>21</td><td>$\nu = \dfrac{1}{2\pi}\sqrt{a/R}$</td><td>Частота через ускорение</td></tr>
+    </table>
+</div>
+
+<p class="footer">💡 Формулы отображаются с помощью MathJax. Для корректного отображения нужно подключение к интернету.</p>
+
+</div>
+</body>
+</html>
