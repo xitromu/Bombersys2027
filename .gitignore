@@ -30,3 +30,6 @@ desktop.ini
 backend/build/
 backend/dist/
 backend/*.spec
+
+# Макеты дизайна (картинки и страницы для выбора) — в репозиторий не идут
+mockups/
