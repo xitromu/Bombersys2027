@@ -70,7 +70,7 @@ def test_two_players_level_continues_while_one_alive():
     game = make_game(players=2, board=Board.empty())
     game._kill(game.players[0], epic=False, cause="enemy")
     run(game, 3.0)
-    assert game.phase == "playing"          # Колян ещё в игре
+    assert game.phase == "playing"          # Игорь ещё в игре
 
 
 def test_game_over_when_lives_run_out():
@@ -106,7 +106,7 @@ def test_websocket_game_starts_and_sends_state():
         state = ws.receive_json()
         assert state["type"] == "state"
         assert state["level"] == 1
-        assert [p["name"] for p in state["players"]] == ["Иван", "Колян"]
+        assert [p["name"] for p in state["players"]] == ["Иван", "Игорь"]
         assert len(state["grid"]) == 225
 
 

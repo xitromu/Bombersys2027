@@ -18,8 +18,9 @@ legacy/UMIRAYUT/*.opt
 legacy/UMIRAYUT/*.aps
 legacy/UMIRAYUT/*.plg
 
-# Заставка оригинала — кадр из фильма «Мумия»: на диске лежит, в репозиторий не идёт
+# Заставка и GAME OVER оригинала — кадры из фильмов: на диске лежат, в репозиторий не идут
 legacy/start.bmp
+legacy/gameover.bmp
 
 # --- Windows ---
 Thumbs.db

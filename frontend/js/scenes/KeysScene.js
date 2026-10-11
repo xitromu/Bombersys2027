@@ -25,7 +25,7 @@ export class KeysScene extends Phaser.Scene {
     drawBackdrop(this);
     this.add.rectangle(CENTER_X, 370, 660, 640, 0x000000, 0.75).setStrokeStyle(2, 0x0000c8);
     this.add.text(CENTER_X, 80, 'Настройка клавиш', textStyle(38, '#ffcc00')).setOrigin(0.5);
-    ['Иван', 'Колян'].forEach((name, set) =>
+    ['Иван', 'Игорь'].forEach((name, set) =>
       this.add.text(COLUMNS[set], 145, name, textStyle(26, '#0096ff')).setOrigin(0.5));
 
     this.cells = ACTIONS.map((action, row) => {

@@ -28,6 +28,7 @@ class LevelSettings:
     memory: float         # сколько секунд враг помнит, где видел игрока
     avoid_danger: float   # 0..1 — как часто враг обходит бомбы и огонь
     life_chance: float    # шанс, что под стеной «жизнь», а не ловушка «смерть»
+    snakes: int = 0       # сколько из врагов — змеи длиной в три клетки (заменяют обычных, а не добавляются)
 
 
 def _clamp(value: float, low: float, high: float) -> float:
@@ -51,6 +52,7 @@ def for_level(level: int, players: int = 1) -> LevelSettings:
         memory=round(min(0.4 * n, 4.0), 1),
         avoid_danger=round(_clamp(0.12 * (level - 3), 0.0, 0.9), 2),
         life_chance=1.0 if level <= 3 else 0.5,
+        snakes=0 if level < 4 else 1 if level < 9 else 2,
     )
 
 

@@ -1,7 +1,7 @@
 from app.game.board import EMPTY, WALL, Board
 from app.game.config import BOMB_FUSE, CHAIN_DELAY, FLAME_TIME
 from app.game.engine import blast_cells
-from app.game.entities import Enemy, Item
+from app.game.entities import Bomb, Enemy, Item
 
 from .conftest import make_game, run
 
@@ -146,3 +146,47 @@ def test_far_flame_gives_ordinary_death():
     run(game, BOMB_FUSE + 0.1)
     assert game.players[0].state == "dying"
     assert game.players[0].death_kind == "normal"
+
+
+def _bomb_at_corner(game, fuse=0.1):
+    """Бомба в углу (0,0), игрок — в дальнем углу: взрыв его не касается."""
+    game.players[0].x, game.players[0].y = 14.0, 14.0
+    game.bombs[998] = Bomb(998, (0, 0), 0, fuse, BOMB_FUSE)
+
+
+def test_enemy_behind_a_burning_wall_waits_for_the_fire_to_go_out():
+    board = Board.empty()
+    board.set((2, 0), WALL)                 # эта стена сгорит
+    board.set((4, 0), WALL)                 # а эта запирает врага в клетке (3,0)
+    game = make_game(board=board)
+    game.enemies[999] = Enemy(999, 3.0, 0.0, tier=0, speed=1.5)
+    _bomb_at_corner(game)
+    run(game, 0.1 + FLAME_TIME - 0.1)       # стена сгорела, огонь на её месте ещё горит
+    assert game.board.get((2, 0)) == EMPTY
+    assert game.enemies[999].cell == (3, 0)             # ждёт, а не идёт в пламя
+    run(game, 2.0)
+    assert 999 in game.enemies                          # жив
+    assert game.enemies[999].cell != (3, 0)             # и пошёл в открывшийся проход
+
+
+def test_burned_life_releases_three_enemies():
+    game = make_game(board=Board.empty())
+    game.items[900] = Item(900, (2, 0), "life")
+    _bomb_at_corner(game)
+    run(game, 0.3)                          # взрыв: «жизнь» сгорела, но пока там огонь — никого
+    assert not game.items and not game.enemies
+    run(game, FLAME_TIME + 0.1)
+    assert len(game.enemies) == 1           # огонь погас — вышел первый
+    run(game, 2.0)
+    assert len(game.enemies) == 3 and not game.nests
+
+
+def test_door_stays_locked_until_enemies_from_burned_life_are_dead():
+    game = make_game(board=Board.empty())
+    game.items[900] = Item(900, (2, 0), "life")
+    door = Item(901, (1, 0), "door")
+    game.items[901] = door
+    _bomb_at_corner(game)
+    run(game, 0.3)                          # огонь задел и дверь, и «жизнь»; врагов на поле ещё нет
+    assert door.burned and not game.enemies
+    assert game._door_locked(door)          # но трое уже на подходе — дверь заперта

@@ -18,12 +18,14 @@ import itertools
 import math
 import random
 
-from . import ai
+from . import ai, snake
 from .board import EMPTY, PILLAR, WALL, Board, Cell
 from .config import (
     BLAST_RADIUS,
     BOMB_BONUS_OVERFLOW_SCORE,
     BOMB_FUSE,
+    BURNED_LIFE_ENEMIES,
+    BURNED_LIFE_PAUSE,
     CHAIN_DELAY,
     DEATH_TIME,
     ENEMY_SCORES,
@@ -38,12 +40,13 @@ from .config import (
     PICKUP_DISTANCE,
     PLAYER_SPEED,
     READY_TIME,
+    SNAKE_SCORE_FACTOR,
     SPAWNS,
     START_BOMBS,
     START_FACING,
 )
 from .difficulty import enemy_stats, for_level
-from .entities import Bomb, Enemy, Flame, Item, Player
+from .entities import Bomb, Enemy, Flame, Item, Nest, Player
 from .movement import DIRECTIONS, move_on_grid, touched_cells
 
 COINS = ("bag", "bigbag", "gems")
@@ -97,6 +100,7 @@ class Game:
         self.items: dict[int, Item] = {}
         self.bombs: dict[int, Bomb] = {}
         self.flames: list[Flame] = []
+        self.nests: list[Nest] = []
         self.legacy_dropped = False
         self.at_locked_door: set[int] = set()
         self.result = None
@@ -135,12 +139,17 @@ class Game:
                 break
         enemies = {}
         cells = self.rng.sample(candidates, min(len(candidates), self.settings.enemies))
-        for number, (x, y) in enumerate(cells):
-            stats = enemy_stats(self.settings, strong=number < self.settings.strong_enemies)
-            enemy = Enemy(next(self._ids), float(x), float(y), stats.tier, stats.speed, sight=stats.sight,
-                          smart=stats.smart, memory=stats.memory, avoid_danger=stats.avoid_danger)
+        for number, cell in enumerate(cells):
+            enemy = self._new_enemy(cell, strong=number < self.settings.strong_enemies)
+            if number >= len(cells) - self.settings.snakes:
+                enemy.kind = "snake"
             enemies[enemy.id] = enemy
         return enemies
+
+    def _new_enemy(self, cell: Cell, strong: bool = False) -> Enemy:
+        stats = enemy_stats(self.settings, strong=strong)
+        return Enemy(next(self._ids), float(cell[0]), float(cell[1]), stats.tier, stats.speed, sight=stats.sight,
+                     smart=stats.smart, memory=stats.memory, avoid_danger=stats.avoid_danger)
 
     def _set_phase(self, phase: str) -> None:
         self.phase = phase
@@ -240,7 +249,11 @@ class Game:
 
     def _door_locked(self, item: Item) -> bool:
         """Взорванная дверь пускает, только когда убиты все враги."""
-        return item.kind == "door" and item.burned and bool(self.enemies)
+        return item.kind == "door" and item.burned and self._enemies_remain()
+
+    def _enemies_remain(self) -> bool:
+        """Враги ещё есть: на поле или те, что вот-вот выйдут из взорванной «жизни»."""
+        return bool(self.enemies) or bool(self.nests)
 
     def _pick_items(self) -> None:
         for player in self.players:
@@ -320,8 +333,9 @@ class Game:
         self._emit("explosion", id=bomb.id, x=bomb.cell[0], y=bomb.cell[1])
         caught: list[Bomb] = []
         for cell, kind in blast_cells(self.board, bomb.cell):
-            self.flames.append(Flame(cell, kind, FLAME_TIME, bomb.owner, bomb.id))
-            if self.board.get(cell) == WALL:
+            was_wall = self.board.get(cell) == WALL
+            self.flames.append(Flame(cell, kind, FLAME_TIME, bomb.owner, bomb.id, wall=was_wall))
+            if was_wall:
                 self.board.set(cell, EMPTY)
                 self._emit("wall_destroyed", x=cell[0], y=cell[1])
                 hidden = self.hidden.pop(cell, None)
@@ -348,9 +362,12 @@ class Game:
             if item.kind != "door":
                 del self.items[item.id]
                 self._emit("item_destroyed", kind=item.kind, x=x, y=y)
+                if item.kind == "life":      # взорвали «жизнь» — из этого места выйдут новые враги
+                    self.nests.append(Nest(item.cell, BURNED_LIFE_ENEMIES))
+                    self._emit("life_burned", x=x, y=y, enemies=BURNED_LIFE_ENEMIES)
             elif not item.burned:
                 item.burned = True
-                if self.enemies:
+                if self._enemies_remain():
                     self._emit("door_locked", x=x, y=y)
 
     def _danger_cells(self) -> set[Cell]:
@@ -361,8 +378,30 @@ class Game:
 
     # ------------------------------------------------------------------ враги
 
+    def _release_enemies(self, dt: float) -> None:
+        """Из мест взорванной «жизни» по одному выходят новые враги — как только там погас огонь."""
+        burning = {f.cell for f in self.flames}
+        for nest in self.nests:
+            if nest.cell in burning:
+                continue
+            nest.wait -= dt
+            if nest.wait <= 0:
+                enemy = self._new_enemy(nest.cell)
+                ways = [c for c in self.board.neighbors(nest.cell) if self.board.is_floor(c)]
+                if ways:   # каждый следующий смотрит в свою сторону — расходятся веером
+                    way = ways[nest.left % len(ways)]
+                    enemy.heading = (way[0] - nest.cell[0], way[1] - nest.cell[1])
+                self.enemies[enemy.id] = enemy
+                nest.left -= 1
+                nest.wait = BURNED_LIFE_PAUSE
+                self._emit("enemy_released", id=enemy.id, x=nest.cell[0], y=nest.cell[1], tier=enemy.tier)
+        self.nests = [n for n in self.nests if n.left > 0]
+
     def _tick_enemies(self, dt: float) -> None:
-        blocked = {b.cell for b in self.bombs.values()}
+        self._release_enemies(dt)
+        # Стена сгорела, но на её месте ещё горит огонь: для врагов проход закрыт, пока не погаснет.
+        # Иначе тот, кто стоял за стеной, сразу шагал в пламя и гиб, хотя взрыв до него не достал.
+        blocked = {b.cell for b in self.bombs.values()} | {f.cell for f in self.flames if f.wall}
         danger = self._danger_cells() if (self.bombs or self.flames) else set()
         for enemy in self.enemies.values():
             ai.perceive(enemy, self.players, dt)
@@ -372,8 +411,13 @@ class Game:
         if enemy.wait > 0:
             enemy.wait -= dt
             return
+        is_snake = enemy.kind == "snake"
         # впереди внезапно появилась бомба — разворачиваемся
         if enemy.target is not None and enemy.target in blocked and enemy.target != enemy.cell:
+            if is_snake:   # змее голову в собственное тело не повернуть — ползёт назад хвостом вперёд
+                snake.reverse(enemy)
+                enemy.wait = ENEMY_REST
+                return
             back = enemy.came_from
             enemy.came_from = enemy.target
             enemy.target = back if back is not None and back not in blocked else None
@@ -382,12 +426,20 @@ class Game:
             if (enemy.x, enemy.y) != here:
                 enemy.target = here      # сначала встать ровно в центр клетки
             else:
-                step = ai.choose_step(enemy, self.board, blocked, danger, self.rng)
+                closed = blocked
+                if is_snake and snake.behind(enemy) is not None:
+                    closed = blocked | {snake.behind(enemy)}      # за головой лежит её собственное тело
+                step = ai.choose_step(enemy, self.board, closed, danger, self.rng)
                 if step is None:
+                    dead_end = not any(self.board.is_floor(c) and c not in closed for c in self.board.neighbors(here))
+                    if is_snake and dead_end:
+                        snake.reverse(enemy)                      # тупик: назад хвостом вперёд
                     enemy.wait = ENEMY_REST
                     return
                 enemy.came_from, enemy.target = here, step
                 enemy.heading = (step[0] - here[0], step[1] - here[1])
+                if is_snake:
+                    snake.leave_cell(enemy, here)
         tx, ty = enemy.target
         dx, dy = tx - enemy.x, ty - enemy.y
         length = math.hypot(dx, dy)
@@ -414,23 +466,46 @@ class Game:
                     killer = fire.get(player.cell, fire[min(hit)])
                     self._kill(player, epic=player.cell in close, cause="bomb", killer=killer)
             for enemy in list(self.enemies.values()):
-                hit = touched_cells(enemy.x, enemy.y, HITBOX) & fire.keys()
+                hit = self._enemy_cells(enemy) & fire.keys()
                 if hit:
                     owner = self.players[fire[min(hit)]]
-                    points = ENEMY_SCORES[enemy.tier]
+                    is_snake = enemy.kind == "snake"
+                    points = ENEMY_SCORES[enemy.tier] * (SNAKE_SCORE_FACTOR if is_snake else 1)
                     del self.enemies[enemy.id]
                     self._add_score(owner, points)
                     self._emit("enemy_killed", id=enemy.id, x=round(enemy.x, 3), y=round(enemy.y, 3),
-                               tier=enemy.tier, player=owner.index, score=points)
-                    if not self.enemies:
+                               tier=enemy.tier, player=owner.index, score=points, kind=enemy.kind,
+                               body=self._body_for_browser(enemy) if is_snake else [])
+                    if not self._enemies_remain():
                         doors = [i for i in self.items.values() if i.kind == "door" and i.burned]
                         self._emit("all_enemies_killed", door_unlocked=bool(doors),
                                    x=doors[0].cell[0] if doors else None, y=doors[0].cell[1] if doors else None)
         for player in self.players:
             if player.active and any(
-                math.hypot(player.x - e.x, player.y - e.y) < ENEMY_TOUCH_DISTANCE for e in self.enemies.values()
+                math.hypot(player.x - x, player.y - y) < ENEMY_TOUCH_DISTANCE
+                for e in self.enemies.values() for x, y in self._enemy_points(e)
             ):
                 self._kill(player, epic=False, cause="enemy")
+
+    @staticmethod
+    def _enemy_points(enemy: Enemy) -> list[tuple[float, float]]:
+        """Точки, касание которых губит героя: у змеи — вдоль всего тела."""
+        return snake.body(enemy, 0.25) if enemy.kind == "snake" else [(enemy.x, enemy.y)]
+
+    @staticmethod
+    def _enemy_cells(enemy: Enemy) -> set[Cell]:
+        """Клетки, которые задевает враг. Змею огонь достаёт в любой части тела."""
+        if enemy.kind != "snake":
+            return touched_cells(enemy.x, enemy.y, HITBOX)
+        cells: set[Cell] = set()
+        for x, y in snake.body(enemy, 0.5):
+            cells |= touched_cells(x, y, HITBOX)
+        return cells
+
+    @staticmethod
+    def _body_for_browser(enemy: Enemy) -> list[list[float]]:
+        """Тело змеи без головы: точки через четверть клетки, от шеи к кончику хвоста."""
+        return [[round(x, 3), round(y, 3)] for x, y in snake.body(enemy, 0.25)[1:]]
 
     def _check_level_end(self) -> None:
         if any(p.state in ("alive", "dying") for p in self.players):
@@ -491,7 +566,8 @@ class Game:
                 for p in self.players
             ],
             "enemies": [
-                {"id": e.id, "x": r(e.x), "y": r(e.y), "tier": e.tier, "chasing": e.chasing, "look": self._look(e)}
+                {"id": e.id, "x": r(e.x), "y": r(e.y), "tier": e.tier, "chasing": e.chasing, "look": self._look(e),
+                 "kind": e.kind, "body": self._body_for_browser(e) if e.kind == "snake" else []}
                 for e in self.enemies.values()
             ],
             "bombs": [

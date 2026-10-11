@@ -190,8 +190,7 @@ SPRITES = {  # с прозрачным белым фоном
     "nasledstvo.bmp": "item_legacy.png",
 }
 
-PICTURES = {  # непрозрачные картинки целиком (заставка start.bmp — кадр из «Мумии» — не переносится)
-    "gameover.bmp": "gameover.png",
+PICTURES = {  # непрозрачные картинки целиком (start.bmp и gameover.bmp — кадры из фильмов — не переносятся)
     "3.bmp": "panel.png",
     "plus.bmp": "level_box.png",
     "plus1.bmp": "stats1.png",

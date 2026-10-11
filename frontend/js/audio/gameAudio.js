@@ -10,10 +10,10 @@ const NOTICE_REPEAT = 6;          // один и тот же призрак «у
 const NOTICE_GAP = 1.2;           // …а все вместе — не чаще раза в 1,2 с
 const KILL_VOICE_GAP = 2.5;       // «Target destroyed!» не чаще раза в 2,5 с
 const COINS = new Set(['bag', 'bigbag', 'gems', 'legacy']);
-const KOLYAN_RATE = 0.86;         // у Коляна голос ниже — тот же диктор, но замедленный
+const IGOR_RATE = 0.86;         // у Игоря голос ниже — тот же диктор, но замедленный
 
 const panOf = (x) => ((x / (GRID - 1)) * 2 - 1) * 0.7;
-const heroRate = (player) => (player === 1 ? KOLYAN_RATE : 1);
+const heroRate = (player) => (player === 1 ? IGOR_RATE : 1);
 const seconds = () => performance.now() / 1000;
 
 export class GameAudio {

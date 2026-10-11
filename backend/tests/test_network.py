@@ -26,10 +26,10 @@ def test_network_game_starts_when_second_player_joins():
             assert host.receive_json() == {"type": "joined", "seat": 0}
             for ws in (host, guest):
                 state = receive_until(ws, "state")
-                assert [p["name"] for p in state["players"]] == ["Иван", "Колян"]
+                assert [p["name"] for p in state["players"]] == ["Иван", "Игорь"]
 
 
-def test_guest_controls_only_kolyan():
+def test_guest_controls_only_igor():
     room = Room(network=True)
     host, guest = Member(None), Member(None)
     room.add(host, seat=0)
@@ -54,4 +54,4 @@ def test_partner_leaving_ends_network_game():
             guest.send_json({"type": "join"})
             receive_until(guest, "joined")
             guest.send_json({"type": "quit"})
-            assert receive_until(host, "left") == {"type": "left", "name": "Колян"}
+            assert receive_until(host, "left") == {"type": "left", "name": "Игорь"}

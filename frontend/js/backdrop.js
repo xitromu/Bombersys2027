@@ -17,7 +17,7 @@ export function drawBackdrop(scene) {
   scene.add.image(760, 10, 'level_box').setOrigin(0);
   scene.add.text(880, 16, 'BOMBERSYS', textStyle(26, '#9b0000')).setOrigin(0.5, 0);
   scene.add.text(880, 80, 'возрождение\nигры 2005 года', textStyle(20, '#15093a', { align: 'center' })).setOrigin(0.5, 0);
-  ['Иван', 'Колян'].forEach((name, i) => {
+  ['Иван', 'Игорь'].forEach((name, i) => {
     const y = 405 + 170 * i;
     scene.add.image(760, y, `face${i + 1}`).setOrigin(0);
     scene.add.image(890, y, `stats${i + 1}`).setOrigin(0);
@@ -28,8 +28,8 @@ export function drawBackdrop(scene) {
   });
 }
 
-export function drawTitle(scene, y = 90) {
-  return scene.add.text(FIELD_X + FIELD_SIZE / 2, y, 'BOMBERMAN', {
+export function drawTitle(scene, y = 90, text = 'BOMBERMAN') {
+  return scene.add.text(FIELD_X + FIELD_SIZE / 2, y, text, {
     fontFamily: '"Times New Roman", Georgia, serif',
     fontSize: '96px',
     fontStyle: 'italic',

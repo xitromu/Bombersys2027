@@ -51,18 +51,18 @@ const SCENES = [
     a.update(state([{ type: 'player_died', player: 0, kind: 'normal', cause: 'trap', killer: null }]))],
   ['Иван убил призрака', '«пуф» и возглас', (a) =>
     a.update(state([{ type: 'enemy_killed', id: 1, x: 7, y: 5, tier: 0, player: 0, score: 100 }], { enemies: [enemy(2, 3)] }))],
-  ['Колян убил двух призраков разом', 'Multi kill', (a) =>
+  ['Игорь убил двух призраков разом', 'Multi kill', (a) =>
     a.update(state([{ type: 'enemy_killed', id: 1, x: 7, y: 5, tier: 1, player: 1, score: 200 },
       { type: 'enemy_killed', id: 2, x: 8, y: 5, tier: 2, player: 1, score: 400 }], { enemies: [enemy(3, 3)] }))],
-  ['Иван подорвал Коляна', 'фанфара и Winner', (a) =>
+  ['Иван подорвал Игоря', 'фанфара и Winner', (a) =>
     a.update(state([{ type: 'player_died', player: 1, kind: 'normal', cause: 'bomb', killer: 0 }]))],
-  ['Колян подорвал Ивана вплотную', 'Flawless victory', (a) =>
+  ['Игорь подорвал Ивана вплотную', 'Flawless victory', (a) =>
     a.update(state([{ type: 'player_died', player: 0, kind: 'super', cause: 'bomb', killer: 1 }]))],
   ['Сгорел подарок и заперлась дверь', '', (a) => {
     a.update(state([{ type: 'item_destroyed', kind: 'chest', x: 4, y: 5 }]));
     setTimeout(() => a.update(state([{ type: 'door_locked', x: 10, y: 5 }])), 900);
   }],
-  ['Колян взял бомбу', 'голос Коляна ниже', (a) =>
+  ['Игорь взял бомбу', 'голос Игоря ниже', (a) =>
     a.update(state([{ type: 'item_taken', player: 1, kind: 'bomb', x: 12, y: 5 }]))],
   ['Последний призрак убит, дверь открыта', '', (a) =>
     a.update(state([{ type: 'enemy_killed', id: 1, x: 7, y: 5, tier: 0, player: 0, score: 100 },

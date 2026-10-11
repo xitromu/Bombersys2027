@@ -52,7 +52,7 @@ export class MenuScene extends Phaser.Scene {
       return `ходить: ${move}    бомба: ${keyLabel(set.bomb)}`;
     };
     this.add.text(CENTER_X, 510,
-      `Иван —  ${describe(keys[0])}\nКолян —  ${describe(keys[1])}\n\nP — пауза,   Esc — в меню,   M — звук,   − / + — громкость`,
+      `Иван —  ${describe(keys[0])}\nИгорь —  ${describe(keys[1])}\n\nP — пауза,   Esc — в меню,   M — звук,   − / + — громкость`,
       textStyle(19, '#cccccc', { align: 'center', lineSpacing: 6 })).setOrigin(0.5, 0);
 
     const status = this.add.text(CENTER_X, 700, '', textStyle(20, '#ff6666')).setOrigin(0.5);

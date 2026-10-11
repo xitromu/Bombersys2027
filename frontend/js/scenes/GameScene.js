@@ -8,12 +8,13 @@ import {
 } from '../layout.js';
 import { Controls } from '../controls.js';
 import { EnemyEyes } from '../enemyEyes.js';
+import { SnakeTail } from '../snakeTail.js';
 import { GameAudio } from '../audio/gameAudio.js';
 import { sound } from '../audio/sound.js';
 import { gameVersion } from '../version.js';
 import { CRIES, DEATH_PHRASES, EPIC_PHRASES, HAIKU, START_HAIKU, pick } from '../texts.js';
 
-const HERO_COLORS = ['#66ccff', '#99ff66'];  // Иван, Колян
+const HERO_COLORS = ['#66ccff', '#99ff66'];  // Иван, Игорь
 
 // Кадры ходьбы в PLAYER1.bmp: влево 0–6, вправо 7–13, вверх 14–20, вниз 21–27.
 const IDLE = { left: 0, right: 13, up: 14, down: 21 };
@@ -36,7 +37,7 @@ export class GameScene extends Phaser.Scene {
 
   init(data) {
     this.playerCount = data.players;
-    this.seat = data.seat ?? null;   // игра по сети: 0 — я Иван, 1 — я Колян; null — своя игра
+    this.seat = data.seat ?? null;   // игра по сети: 0 — я Иван, 1 — я Игорь; null — своя игра
   }
 
   create() {
@@ -134,7 +135,7 @@ export class GameScene extends Phaser.Scene {
       const parts = {
         face: this.add.image(760, y, `face${i + 1}`).setOrigin(0),
         stats: this.add.image(890, y, `stats${i + 1}`).setOrigin(0),
-        name: this.add.text(814, y + 137, ['Иван', 'Колян'][i], textStyle(18, '#0096ff')).setOrigin(0.5),
+        name: this.add.text(814, y + 137, ['Иван', 'Игорь'][i], textStyle(18, '#0096ff')).setOrigin(0.5),
         score: this.add.text(944, y + 137, '0', textStyle(18, '#0096ff')).setOrigin(0.5),
         lives: this.add.text(975, y + 40, '', textStyle(32, '#0096ff')).setOrigin(0.5),
         bombs: this.add.text(975, y + 90, '', textStyle(32, '#0096ff')).setOrigin(0.5),
@@ -203,6 +204,8 @@ export class GameScene extends Phaser.Scene {
       (o) => this.createEnemy(o),
       (sprite, o) => {
         this.setTarget(sprite, o);
+        // змея развернулась (хвост стал головой) — ставим её на место сразу, без «перелёта» через всё тело
+        if (sprite.tail && sprite.tail.setTarget(o.body)) sprite.from = sprite.to;
         sprite.eyes.setAlert(o.chasing);
         sprite.look = o.look;
       });
@@ -265,7 +268,11 @@ export class GameScene extends Phaser.Scene {
   createEnemy(o) {
     const sprite = this.add.sprite(0, 0, 'enemies').setOrigin(0).play(`enemy${o.tier}`);
     sprite.eyes = new EnemyEyes(this);
-    sprite.once('destroy', () => sprite.eyes.destroy());
+    if (o.kind === 'snake') sprite.tail = new SnakeTail(this, o.tier);   // голова — как у призрака, за ней тело
+    sprite.once('destroy', () => {
+      sprite.eyes.destroy();
+      sprite.tail?.destroy();
+    });
     return sprite;
   }
 
@@ -317,6 +324,10 @@ export class GameScene extends Phaser.Scene {
           targets: ghost, alpha: 0, scaleX: 1.4, scaleY: 0.2, y: ghost.y + 30, duration: 450,
           onComplete: () => ghost.destroy(),
         });
+        for (const [bx, by] of event.body ?? []) {   // змея: вспышка вдоль всего тела
+          const puff = this.add.circle(cellCenterX(bx), cellCenterY(by), 14, 0xffffff).setDepth(actorDepth(by));
+          this.tweens.add({ targets: puff, alpha: 0, scale: 1.6, duration: 450, onComplete: () => puff.destroy() });
+        }
         this.popup(cellCenterX(event.x), cellTop(event.y), `+${event.score}`, '#ffcc00');
         break;
       }
@@ -326,6 +337,10 @@ export class GameScene extends Phaser.Scene {
         boom.once('animationcomplete', () => boom.destroy());
         break;
       }
+      case 'life_burned':
+        this.popup(cellCenterX(event.x), cellTop(event.y),
+          `Жизнь взорвана! Выходят ${event.enemies} врага`, '#ff6666', 2600);
+        break;
       case 'door_locked':
         this.popup(cellCenterX(event.x), cellTop(event.y), 'Дверь заперта! Убейте всех врагов', '#ff6666', 2600);
         break;
@@ -422,6 +437,7 @@ export class GameScene extends Phaser.Scene {
     for (const sprite of this.enemies.values()) {
       const pos = lerp(sprite);
       sprite.setPosition(cellLeft(pos.x), cellTop(pos.y)).setDepth(actorDepth(pos.y));
+      sprite.tail?.draw(t, sprite.depth - 0.002);
       sprite.eyes.follow(sprite, sprite.look);
     }
     for (const sprite of this.playerSprites) {

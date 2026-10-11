@@ -14,7 +14,7 @@ from .movement import cell_of
 
 @dataclass
 class Player:
-    index: int                      # 0 — Иван, 1 — Колян
+    index: int                      # 0 — Иван, 1 — Игорь
     name: str
     x: float = 0.0
     y: float = 0.0
@@ -60,6 +60,8 @@ class Enemy:
     last_seen: Cell | None = None   # где последний раз видел игрока
     memory_left: float = 0.0
     wait: float = 0.0               # стоит на месте (некуда идти)
+    kind: str = "ghost"             # ghost — обычный враг, snake — змея длиной в три клетки (см. snake.py)
+    trail: list[tuple[float, float]] = field(default_factory=list)   # змея: путь головы, свежие точки первыми
 
     @property
     def cell(self) -> Cell:
@@ -82,6 +84,15 @@ class Flame:
     time_left: float
     owner: int
     bomb: int = 0                   # какая бомба зажгла
+    wall: bool = False              # горит на месте сгоревшей стены: пока не погаснет, враги туда не идут
+
+
+@dataclass
+class Nest:
+    """Место взорванного бонуса «жизнь»: когда огонь погаснет, отсюда по одному выходят враги."""
+    cell: Cell
+    left: int                       # сколько врагов ещё выйдет
+    wait: float = 0.0               # пауза до следующего
 
 
 @dataclass

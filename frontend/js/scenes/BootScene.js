@@ -5,7 +5,7 @@ import { WIDTH, HEIGHT, textStyle } from '../layout.js';
 import { createEyeTextures } from '../enemyEyes.js';
 
 const IMAGES = [
-  'gameover', 'panel', 'level_box', 'stats1', 'stats2', 'face1', 'face2',
+  'panel', 'level_box', 'stats1', 'stats2', 'face1', 'face2',
   'pause', 'ready', 'floor', 'walls', 'pillars', 'flame_near', 'flame_far',
   'item_door', 'item_chest', 'item_bomb', 'item_life', 'item_death',
   'item_bag', 'item_bigbag', 'item_gems', 'item_legacy',
