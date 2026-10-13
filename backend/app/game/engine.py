@@ -1,7 +1,7 @@
 """Игровой движок: один объект Game — одна партия от первого уровня до GAME OVER.
 
 Сервер 30 раз в секунду вызывает update(dt), а между вызовами передаёт нажатия клавиш
-(set_direction, place_bomb, toggle_pause). После каждого update браузер получает
+(set_direction, place_bomb, revive, toggle_pause). После каждого update браузер получает
 snapshot() — «фотографию» игры, по которой он всё рисует.
 
 Этапы партии (phase):
@@ -37,13 +37,20 @@ from .config import (
     LEVEL_END_TIME,
     MAX_BOMBS,
     NAMES,
+    NORMAL_DEATH,
     PICKUP_DISTANCE,
     PLAYER_SPEED,
     READY_TIME,
+    REVIVE_COST,
+    REVIVE_SHIELD,
+    SNAKE_LENGTH,
+    SNAKE_REMAINS,
     SNAKE_SCORE_FACTOR,
     SPAWNS,
     START_BOMBS,
     START_FACING,
+    SUPER_DEATH_IN_PLACE,
+    SUPER_DEATHS,
 )
 from .difficulty import enemy_stats, for_level
 from .entities import Bomb, Enemy, Flame, Item, Nest, Player
@@ -52,6 +59,7 @@ from .movement import DIRECTIONS, move_on_grid, touched_cells
 COINS = ("bag", "bigbag", "gems")
 DOOR_MIN_DISTANCE = 6       # дверь прячем подальше от стартовых углов
 ENEMY_SPAWN_DISTANCE = 6    # и врагов тоже ставим подальше
+SNAKE_TAIL_DISTANCE = 3     # тело змеи при появлении лежит не ближе к стартовым углам
 ENEMY_REST = 0.25           # сколько враг стоит, если идти некуда
 
 
@@ -101,22 +109,26 @@ class Game:
         self.bombs: dict[int, Bomb] = {}
         self.flames: list[Flame] = []
         self.nests: list[Nest] = []
-        self.legacy_dropped = False
         self.at_locked_door: set[int] = set()
         self.result = None
         for player in self.players:
             if player.lives > 0:
-                sx, sy = SPAWNS[player.index]
-                player.x, player.y = float(sx), float(sy)
-                player.state, player.state_time = "alive", 0.0
-                player.facing = START_FACING[player.index]
-                player.wanted, player.moving, player.death_kind = None, False, None
-                player.ghost_bombs.clear()
+                self._stand_up(player)
             else:
                 player.state = "out"
         self.enemies = self._spawn_enemies()
         self._set_phase("ready")
         self._emit("level_start", level=self.level)
+
+    @staticmethod
+    def _stand_up(player: Player) -> None:
+        """Герой встаёт в своём углу: в начале уровня и когда его воскресил напарник."""
+        sx, sy = SPAWNS[player.index]
+        player.x, player.y = float(sx), float(sy)
+        player.state, player.state_time, player.shield = "alive", 0.0, 0.0
+        player.facing = START_FACING[player.index]
+        player.wanted, player.moving = None, False
+        player.death_kind, player.death_anim, player.death_cause, player.remains = None, None, None, None
 
     def _hide_items(self) -> dict[Cell, str]:
         """Прячет под стенами дверь и бонусы — как в оригинале: 9 штук."""
@@ -139,12 +151,43 @@ class Game:
                 break
         enemies = {}
         cells = self.rng.sample(candidates, min(len(candidates), self.settings.enemies))
+        spare = [c for c in candidates if c not in cells]
         for number, cell in enumerate(cells):
             enemy = self._new_enemy(cell, strong=number < self.settings.strong_enemies)
             if number >= len(cells) - self.settings.snakes:
                 enemy.kind = "snake"
+                self._lay_snake(enemy, spare)
             enemies[enemy.id] = enemy
         return enemies
+
+    def _lay_snake(self, enemy: Enemy, spare: list[Cell]) -> None:
+        """Змея появляется сразу во всю длину: тело лежит в свободных клетках позади головы.
+
+        Если у её клетки места для тела нет, перебирается на запасную клетку, где оно есть."""
+        self.rng.shuffle(spare)
+        for head in [enemy.cell, *spare]:
+            tail = self._room_behind([head])
+            if tail:
+                if head in spare:
+                    spare.remove(head)
+                enemy.x, enemy.y = float(head[0]), float(head[1])
+                enemy.trail = [(float(x), float(y)) for x, y in tail]
+                enemy.came_from = tail[0]
+                enemy.heading = (head[0] - tail[0][0], head[1] - tail[0][1])
+                return
+
+    def _room_behind(self, chain: list[Cell]) -> list[Cell] | None:
+        """Цепочка соседних свободных клеток, на которую ляжет тело змеи, — от шеи к хвосту (chain[0] — голова)."""
+        if len(chain) > math.ceil(SNAKE_LENGTH):
+            return chain[1:]
+        ways = [c for c in self.board.neighbors(chain[-1]) if self.board.is_floor(c) and c not in chain
+                and all(_manhattan(c, s) >= SNAKE_TAIL_DISTANCE for s in SPAWNS)]
+        self.rng.shuffle(ways)
+        for cell in ways:
+            found = self._room_behind([*chain, cell])
+            if found:
+                return found
+        return None
 
     def _new_enemy(self, cell: Cell, strong: bool = False) -> Enemy:
         stats = enemy_stats(self.settings, strong=strong)
@@ -177,10 +220,32 @@ class Game:
             return
         bomb = Bomb(next(self._ids), cell, index, BOMB_FUSE, BOMB_FUSE)
         self.bombs[bomb.id] = bomb
-        for other in self.players:  # кто стоит на бомбе, может с неё сойти
-            if other.active and self._overlaps(other, cell):
-                other.ghost_bombs.add(bomb.id)
         self._emit("bomb_placed", player=index, x=cell[0], y=cell[1])
+
+    def revive(self, index: int) -> None:
+        """Герой index воскрешает погибшего напарника: тратит свою жизнь, и напарник тут же встаёт в своём углу.
+
+        Работает в любом раунде, пока своих жизней хватает (последнюю отдать нельзя). У напарника, оставшегося
+        без жизней, отданная жизнь становится единственной. Первые секунды воскрешённого ничто не берёт:
+        в углу его может ждать враг или огонь."""
+        if not 0 <= index < len(self.players):
+            return
+        player = self.players[index]
+        partner = self._revivable(player)
+        if partner is None:
+            return
+        player.lives -= REVIVE_COST
+        partner.lives = max(partner.lives, 1)
+        self._stand_up(partner)
+        partner.shield = REVIVE_SHIELD
+        self._emit("player_revived", player=partner.index, by=index, x=round(partner.x), y=round(partner.y))
+
+    def _revivable(self, player: Player) -> Player | None:
+        """Кого player может воскресить прямо сейчас: погибшего напарника — или никого."""
+        if self.phase != "playing" or len(self.players) < 2 or not player.active or player.lives <= REVIVE_COST:
+            return None
+        partner = self.players[1 - player.index]
+        return partner if partner.state in ("dead", "out") else None
 
     def toggle_pause(self) -> None:
         if self.phase == "playing":
@@ -202,12 +267,12 @@ class Game:
     def _step(self, dt: float) -> None:
         for player in self.players:
             if player.active:
+                player.shield = max(0.0, player.shield - dt)
                 self._move_player(player, dt)
             elif player.state == "dying":
                 player.state_time += dt
                 if player.state_time >= DEATH_TIME:
                     player.state = "dead"
-                    self._drop_legacy(player)
         self._pick_items()
         self._tick_bombs(dt)
         self._tick_flames(dt)
@@ -217,31 +282,20 @@ class Game:
 
     # ------------------------------------------------------------------ игроки
 
-    @staticmethod
-    def _overlaps(player: Player, cell: Cell) -> bool:
-        return abs(player.x - cell[0]) < 1 - 1e-6 and abs(player.y - cell[1]) < 1 - 1e-6
-
     def _bombs_of(self, index: int) -> int:
         return sum(1 for b in self.bombs.values() if b.owner == index)
 
     def _move_player(self, player: Player, dt: float) -> None:
         player.moving = False
-        player.ghost_bombs = {
-            bid for bid in player.ghost_bombs if bid in self.bombs and self._overlaps(player, self.bombs[bid].cell)
-        }
         if player.wanted is None:
             return
-        blocked = {b.cell for b in self.bombs.values() if b.id not in player.ghost_bombs}
-
-        def passable(cell: Cell) -> bool:
-            return self.board.is_floor(cell) and cell not in blocked
-
         # Повернул раньше, чем дошёл до прохода, — продолжаем идти по прежней клавише,
         # а как только проход появится, свернём в него сами.
         for direction in (player.wanted, player.wanted_alt):
             if direction is None:
                 continue
-            x, y = move_on_grid(player.x, player.y, direction, PLAYER_SPEED * dt, passable)
+            # бомбы героям не преграда: мимо невзорвавшейся можно пробежать (врагов бомба останавливает)
+            x, y = move_on_grid(player.x, player.y, direction, PLAYER_SPEED * dt, self.board.is_floor)
             if (x, y) != (player.x, player.y):
                 player.x, player.y, player.facing, player.moving = x, y, direction, True
                 return
@@ -304,20 +358,30 @@ class Game:
 
     def _kill(self, player: Player, epic: bool, cause: str, killer: int | None = None) -> None:
         """epic — погиб вплотную к бомбе: «суперсмерть», героя отбрасывает взрывом.
-        cause — от чего: "bomb", "enemy" или "trap"; killer — чья бомба убила (None — враг или ловушка)."""
+        cause — от чего: "bomb", "enemy", "snake" или "trap"; killer — чья бомба убила (None — враг или ловушка)."""
+        if player.shield > 0:           # только что воскрешён — пока неуязвим
+            return
         player.state, player.state_time = "dying", 0.0
+        player.death_cause = cause
         player.wanted, player.moving = None, False
         player.lives = max(0, player.lives - 1)
         player.capacity = START_BOMBS
         player.death_kind = "super" if epic else "normal"
+        player.death_anim = self._fall(player) if epic else NORMAL_DEATH
+        # что останется от съеденного змеёй, тоже решает сервер: оба игрока должны увидеть одно и то же
+        player.remains = self.rng.choice(SNAKE_REMAINS) if cause == "snake" else None
         self._emit("player_died", player=player.index, kind=player.death_kind, cause=cause, killer=killer)
 
-    def _drop_legacy(self, player: Player) -> None:
-        """«Наследство» — один раз за уровень остаётся на месте погибшего."""
-        if not self.legacy_dropped:
-            self.legacy_dropped = True
-            item = Item(next(self._ids), player.cell, "legacy")
-            self.items[item.id] = item
+    def _fall(self, player: Player) -> str:
+        """Как героя швыряет взрыв. Решает сервер: в игре по сети оба игрока должны увидеть одно и то же.
+
+        Отбросить назад можно только на свободную клетку: на стене, колонне и за краем поля телу лежать негде,
+        а на бонус или дверь тело не кладём — тогда героя подбрасывает на месте."""
+        dx, dy = DIRECTIONS[player.facing]
+        x, y = player.cell
+        back = (x - dx, y - dy)
+        free = self.board.is_floor(back) and all(item.cell != back for item in self.items.values())
+        return self.rng.choice(SUPER_DEATHS) if free else SUPER_DEATH_IN_PLACE
 
     # ------------------------------------------------------------------ бомбы и огонь
 
@@ -414,10 +478,8 @@ class Game:
         is_snake = enemy.kind == "snake"
         # впереди внезапно появилась бомба — разворачиваемся
         if enemy.target is not None and enemy.target in blocked and enemy.target != enemy.cell:
-            if is_snake:   # змее голову в собственное тело не повернуть — ползёт назад хвостом вперёд
-                snake.reverse(enemy)
-                enemy.wait = ENEMY_REST
-                return
+            if is_snake:   # голова поворачивает назад и ползёт вдоль своего тела — разворот петлёй
+                snake.fold(enemy)
             back = enemy.came_from
             enemy.came_from = enemy.target
             enemy.target = back if back is not None and back not in blocked else None
@@ -430,10 +492,13 @@ class Game:
                 if is_snake and snake.behind(enemy) is not None:
                     closed = blocked | {snake.behind(enemy)}      # за головой лежит её собственное тело
                 step = ai.choose_step(enemy, self.board, closed, danger, self.rng)
-                if step is None:
+                if step is None and is_snake:
+                    # тупик: голова поворачивает в клетку за собой и ползёт вдоль своего тела — разворот петлёй
+                    back = snake.behind(enemy)
                     dead_end = not any(self.board.is_floor(c) and c not in closed for c in self.board.neighbors(here))
-                    if is_snake and dead_end:
-                        snake.reverse(enemy)                      # тупик: назад хвостом вперёд
+                    if dead_end and back is not None and self.board.is_floor(back) and back not in blocked:
+                        step = back
+                if step is None:
                     enemy.wait = ENEMY_REST
                     return
                 enemy.came_from, enemy.target = here, step
@@ -481,11 +546,11 @@ class Game:
                         self._emit("all_enemies_killed", door_unlocked=bool(doors),
                                    x=doors[0].cell[0] if doors else None, y=doors[0].cell[1] if doors else None)
         for player in self.players:
-            if player.active and any(
-                math.hypot(player.x - x, player.y - y) < ENEMY_TOUCH_DISTANCE
-                for e in self.enemies.values() for x, y in self._enemy_points(e)
-            ):
-                self._kill(player, epic=False, cause="enemy")
+            for enemy in self.enemies.values():
+                if player.active and any(
+                    math.hypot(player.x - x, player.y - y) < ENEMY_TOUCH_DISTANCE for x, y in self._enemy_points(enemy)
+                ):
+                    self._kill(player, epic=False, cause="snake" if enemy.kind == "snake" else "enemy")
 
     @staticmethod
     def _enemy_points(enemy: Enemy) -> list[tuple[float, float]]:
@@ -506,6 +571,11 @@ class Game:
     def _body_for_browser(enemy: Enemy) -> list[list[float]]:
         """Тело змеи без головы: точки через четверть клетки, от шеи к кончику хвоста."""
         return [[round(x, 3), round(y, 3)] for x, y in snake.body(enemy, 0.25)[1:]]
+
+    @staticmethod
+    def _path_for_browser(enemy: Enemy) -> list[list[float]]:
+        """Ломаная вдоль змеи от головы к кончику хвоста: по ней браузер рисует тело лентой."""
+        return [[round(x, 3), round(y, 3)] for x, y in snake.path(enemy)]
 
     def _check_level_end(self) -> None:
         if any(p.state in ("alive", "dying") for p in self.players):
@@ -559,15 +629,20 @@ class Game:
                     "moving": p.moving,
                     "state": p.state,
                     "death": p.death_kind,
+                    "death_anim": p.death_anim,
+                    "cause": p.death_cause,
+                    "remains": p.remains,
                     "lives": p.lives,
                     "score": p.score,
                     "bombs": max(0, p.capacity - self._bombs_of(p.index)),
+                    "can_revive": self._revivable(p) is not None,   # может воскресить напарника прямо сейчас
+                    "shield": p.shield > 0,                         # неуязвим после воскрешения: на экране мигает
                 }
                 for p in self.players
             ],
             "enemies": [
                 {"id": e.id, "x": r(e.x), "y": r(e.y), "tier": e.tier, "chasing": e.chasing, "look": self._look(e),
-                 "kind": e.kind, "body": self._body_for_browser(e) if e.kind == "snake" else []}
+                 "kind": e.kind, "path": self._path_for_browser(e) if e.kind == "snake" else []}
                 for e in self.enemies.values()
             ],
             "bombs": [

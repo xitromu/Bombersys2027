@@ -16,7 +16,8 @@
                                               куда жмёт игрок (null — отпустил);
                                               alt — предыдущая ещё зажатая клавиша
     {"type": "bomb", "player": 0}             поставить бомбу
-    {"type": "pause"}                         пауза / продолжить
+    {"type": "revive", "player": 0}           воскресить погибшего напарника за одну свою жизнь
+    {"type": "pause"}                       пауза / продолжить
     {"type": "quit"}                          выйти в меню (в игре по сети — закончить её для обоих)
 
 Ответы сервера, кроме состояния игры ("state"):
@@ -128,6 +129,8 @@ class Room:
             self.game.set_direction(player, message.get("dir"), message.get("alt"))
         elif kind == "bomb":
             self.game.place_bomb(player)
+        elif kind == "revive":
+            self.game.revive(player)
         elif kind == "pause":
             self.game.toggle_pause()
 

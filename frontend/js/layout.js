@@ -21,9 +21,11 @@ export const cellCenterY = (y) => cellTop(y) + CELL / 2;
 // Слои: что рисуется поверх чего (больше — выше).
 // Тела погибших лежат на полу (corpses). Живые игроки и враги (actors) сортируются по высоте:
 // кто ниже на экране — тот рисуется поверх, как в оригинале.
+// От взрыва: копоть (soot) лежит на полу и стенах, угольки (embers) — на полу, отсвет (glow) — под огненным шаром,
+// искры и дым (air) летят над героями, вспышка (flash) — поверх всего поля.
 export const DEPTH = {
-  floor: 0, pillars: 1, walls: 2, items: 3, corpses: 3.5, flames: 4, bombs: 5,
-  explosion: 6, actors: 7, popups: 9, panel: 10, overlay: 20,
+  floor: 0, pillars: 1, walls: 2, soot: 2.5, items: 3, corpses: 3.5, embers: 3.8, flames: 4, bombs: 5,
+  glow: 5.5, explosion: 6, actors: 7, air: 8, flash: 8.5, popups: 9, panel: 10, overlay: 20,
 };
 export const actorDepth = (y) => DEPTH.actors + y / 100;
 

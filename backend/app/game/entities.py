@@ -25,13 +25,15 @@ class Player:
     lives: int = START_LIVES
     score: int = 0
     capacity: int = START_BOMBS     # сколько бомб может стоять одновременно
-    # alive — в игре; dying — анимация смерти; dead — ждёт конца уровня;
-    # exited — ушёл в дверь; out — жизни кончились
+    # alive — в игре; dying — анимация смерти; dead — ждёт конца уровня (или пока воскресит напарник);
+    # exited — ушёл в дверь; out — жизни кончились (напарник может воскресить, отдав свою)
     state: str = "alive"
     state_time: float = 0.0
+    shield: float = 0.0             # сколько секунд ещё неуязвим: только что воскрешён напарником
     death_kind: str | None = None   # normal / super
-    # бомбы, с которых игрок ещё не сошёл (по ним можно ходить, пока не отойдёшь)
-    ghost_bombs: set[int] = field(default_factory=set)
+    death_anim: str | None = None   # как именно падает: knees / thrown / flip / rocket (см. config.py)
+    death_cause: str | None = None  # от чего погиб: bomb / enemy / snake / trap
+    remains: str | None = None      # что осталось от съеденного змеёй: skeleton / pile (см. config.py)
 
     @property
     def cell(self) -> Cell:
@@ -99,6 +101,6 @@ class Nest:
 class Item:
     id: int
     cell: Cell
-    kind: str   # door, chest, bomb, life, death, bag, bigbag, gems, legacy
+    kind: str   # door, chest, bomb, life, death, bag, bigbag, gems
     revealed_by: int | None = None  # бомба, открывшая бонус, — её огонь бонус не трогает
     burned: bool = False            # для двери: в неё попал огонь

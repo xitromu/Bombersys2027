@@ -4,8 +4,8 @@ from fastapi.testclient import TestClient
 
 from app.game.engine import Game
 from app.game.board import Board
-from app.game.config import BOMB_FUSE
-from app.game.entities import Enemy, Item
+from app.game.config import BOMB_FUSE, REVIVE_SHIELD
+from app.game.entities import Enemy, Flame, Item
 from app.main import app
 
 from .conftest import make_game, run
@@ -81,6 +81,62 @@ def test_game_over_when_lives_run_out():
     assert game.phase == "game_over"
 
 
+def test_revive_costs_a_life_and_partner_stands_up_in_his_corner():
+    game = make_game(players=2, board=Board.empty())
+    ivan, igor = game.players
+    igor.x, igor.y = 6.0, 8.0
+    game._kill(igor, epic=False, cause="enemy")
+    run(game, 2.0)                                              # упал и лежит
+    assert igor.state == "dead" and igor.lives == 4
+    assert [p["can_revive"] for p in game.snapshot()["players"]] == [True, False]   # панель зовёт Ивана воскресить
+    game.revive(0)
+    assert igor.state == "alive" and (igor.x, igor.y) == (14.0, 14.0)
+    assert (ivan.lives, igor.lives) == (4, 4)                   # Иван заплатил жизнью, у Игоря — сколько было
+    state = game.snapshot()
+    assert {"type": "player_revived", "player": 1, "by": 0, "x": 14, "y": 14} in state["events"]
+    assert [p["can_revive"] for p in state["players"]] == [False, False]
+
+    ivan.lives = 1
+    run(game, REVIVE_SHIELD + 0.1)                              # воскрешённый первые секунды неуязвим — ждём
+    game._kill(igor, epic=False, cause="enemy")
+    run(game, 2.0)
+    game.revive(0)                                              # последнюю жизнь отдать нельзя
+    assert igor.state == "dead" and ivan.lives == 1
+
+
+def test_partner_without_lives_can_be_revived_in_a_later_round():
+    """Воскресить можно в любом раунде: и того, у кого жизни кончились ещё на прошлом уровне."""
+    game = make_game(players=2, board=Board.empty())
+    ivan, igor = game.players
+    igor.lives = 1
+    game._kill(igor, epic=False, cause="enemy")                 # последняя жизнь Игоря
+    game.items = {1: Item(1, (2, 0), "door")}
+    game.set_direction(0, "right")
+    run(game, 5.0)                                              # Иван ушёл в дверь, начался второй уровень
+    assert game.level == 2 and game.phase == "playing" and igor.state == "out" and igor.lives == 0
+    game.enemies = {}
+    game.revive(0)
+    assert igor.state == "alive" and (igor.x, igor.y) == (14.0, 14.0)
+    assert (ivan.lives, igor.lives) == (4, 1)                   # отданная жизнь стала у Игоря единственной
+
+
+def test_revived_hero_is_safe_for_two_seconds():
+    """Воскрешённого первые секунды не берут ни огонь, ни тварь: в углу они могут его ждать."""
+    game = make_game(players=2, board=Board.empty())
+    igor = game.players[1]
+    game._kill(igor, epic=False, cause="enemy")
+    run(game, 2.0)
+    game.flames = [Flame((14, 14), "near", 1.0, owner=0)]       # угол Игоря в огне
+    game.revive(0)
+    run(game, 1.2)                                              # огонь отгорел
+    assert igor.state == "alive" and game.snapshot()["players"][1]["shield"]
+    game.enemies = {1: Enemy(1, 14.0, 14.0, tier=0, speed=0, sight=9)}   # теперь в углу стоит тварь
+    run(game, REVIVE_SHIELD - 1.2 - 0.2)
+    assert igor.state == "alive"
+    run(game, 0.4)                                              # защита кончилась — тварь берёт своё
+    assert igor.state == "dying" and not game.snapshot()["players"][1]["shield"]
+
+
 def test_random_play_does_not_crash():
     """«Обезьяний тест»: тысячи случайных нажатий на разных уровнях."""
     for players in (1, 2):
@@ -93,6 +149,8 @@ def test_random_play_does_not_crash():
                         game.set_direction(index, rng.choice(["left", "right", "up", "down", None]))
                     if rng.random() < 0.02:
                         game.place_bomb(index)
+                    if rng.random() < 0.01:
+                        game.revive(index)
                 game.update(1 / 30)
                 state = game.snapshot()
                 if state["phase"] == "game_over":

@@ -1,5 +1,5 @@
 from app.game.board import EMPTY, WALL, Board
-from app.game.config import BOMB_FUSE, CHAIN_DELAY, FLAME_TIME
+from app.game.config import BOMB_FUSE, CHAIN_DELAY, FLAME_TIME, NORMAL_DEATH, SUPER_DEATH_IN_PLACE, SUPER_DEATHS
 from app.game.engine import blast_cells
 from app.game.entities import Bomb, Enemy, Item
 
@@ -146,6 +146,62 @@ def test_far_flame_gives_ordinary_death():
     run(game, BOMB_FUSE + 0.1)
     assert game.players[0].state == "dying"
     assert game.players[0].death_kind == "normal"
+
+
+def test_server_picks_how_the_hero_falls():
+    """Обычная гибель — всегда «на колени». При «суперсмерти» сервер сам выбирает один из трёх вариантов
+    и сообщает его браузеру: в игре по сети оба игрока должны увидеть одно и то же."""
+    seen = set()
+    for seed in range(30):
+        game = make_game(seed=seed, board=Board.empty())
+        game.players[0].x = 2.0             # смотрит вправо, позади свободная клетка
+        game.place_bomb(0)                  # стоит на собственной бомбе
+        run(game, BOMB_FUSE + 0.1)
+        player = game.snapshot()["players"][0]
+        assert player["death"] == "super" and player["death_anim"] in SUPER_DEATHS
+        seen.add(player["death_anim"])
+    assert seen == set(SUPER_DEATHS)
+
+    # позади край поля, колонна или уцелевшая стена — отбрасывать некуда, героя подбрасывает на месте.
+    # Стену вплотную за спиной тот же взрыв сжигает раньше, чем герой падает, — она не помеха.
+    for seed in range(10):
+        for bomb, hero, facing, wall in (
+            ((0, 0), (0, 0), "right", None),        # в углу: позади край поля
+            ((2, 1), (2, 1), "right", None),        # между колоннами: позади колонна (1,1)
+            ((2, 1), (2, 2), "left", (3, 2)),       # рядом с бомбой, спиной к стене, до которой огонь не достаёт
+        ):
+            game = make_game(seed=seed, board=Board.empty())
+            player = game.players[0]
+            if wall:
+                game.board.set(wall, WALL)
+            player.x, player.y = float(bomb[0]), float(bomb[1])
+            game.place_bomb(0)
+            player.x, player.y, player.facing = float(hero[0]), float(hero[1]), facing
+            run(game, BOMB_FUSE + 0.1)
+            assert game.snapshot()["players"][0]["death_anim"] == SUPER_DEATH_IN_PLACE
+
+    game = make_game(board=Board.empty())
+    game.players[0].x = 2.0
+    game.place_bomb(0)
+    game.players[0].x = 0.0                 # дальний язык пламени
+    run(game, BOMB_FUSE + 0.1)
+    assert game.snapshot()["players"][0]["death_anim"] == NORMAL_DEATH
+
+
+def test_heroes_run_past_bombs_but_enemies_do_not():
+    game = make_game(players=2, board=Board.empty())
+    game.players[1].x, game.players[1].y = 4.0, 0.0
+    game.place_bomb(1)                      # бомба Игоря в (4,0) — на пути у Ивана
+    game.set_direction(0, "right")
+    run(game, 2.0)
+    assert game.players[0].x > 5.0          # Иван пробежал мимо
+
+    game = make_game(board=Board.empty())
+    game.players[0].x, game.players[0].y = 14.0, 14.0
+    game.bombs[998] = Bomb(998, (2, 0), 0, BOMB_FUSE, BOMB_FUSE)
+    game.enemies = {1: Enemy(1, 0.0, 0.0, tier=0, speed=2.0, sight=0)}
+    run(game, 2.0)
+    assert game.enemies[1].x < 1.5          # враг в бомбу не идёт
 
 
 def _bomb_at_corner(game, fuse=0.1):

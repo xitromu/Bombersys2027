@@ -9,7 +9,7 @@ import {
 
 const CENTER_X = FIELD_X + FIELD_SIZE / 2;
 const COLUMNS = [CENTER_X - 10, CENTER_X + 190];
-const ROW_Y = (row) => 200 + row * 62;
+const ROW_Y = (row) => 196 + row * 54;
 
 export class KeysScene extends Phaser.Scene {
   constructor() {

@@ -1,23 +1,26 @@
 // Загрузка картинок и описание анимаций. Картинки сделаны из старых BMP скриптом
 // tools/convert_assets.py; кадры в полосах идут с шагом «ширина + 1 пиксель разделителя».
+// Герои — новые: их листы собирает tools/build_hero.py, а рисует heroView.js. Листы hero<N>_headless —
+// те же кадры гибели, но без головы (её съела тварь): собирает mockups/hero/build_headless.py.
+// Твари, змея, бонусы, панель и надписи поверх поля рисуются на холсте — картинок для них нет.
 
 import { WIDTH, HEIGHT, textStyle } from '../layout.js';
-import { createEyeTextures } from '../enemyEyes.js';
+import { createBlastTextures } from '../blastView.js';
+import { createItemTextures } from '../itemView.js';
+import { createBonesTextures } from '../bonesView.js';
+import { HERO } from '../heroMeta.js';
 
 const IMAGES = [
-  'panel', 'level_box', 'stats1', 'stats2', 'face1', 'face2',
-  'pause', 'ready', 'floor', 'walls', 'pillars', 'flame_near', 'flame_far',
-  'item_door', 'item_chest', 'item_bomb', 'item_life', 'item_death',
-  'item_bag', 'item_bigbag', 'item_gems', 'item_legacy',
+  'photo1', 'photo2',                                               // фотографии героев для панели
+  'floor', 'walls', 'pillars', 'flame_near', 'flame_far',
 ];
 
 const SHEETS = {
-  player1: [49, 49, 1], player2: [49, 49, 1],
-  death1: [49, 49, 1], death2: [49, 49, 1],
-  superdeath1: [64, 64, 1], superdeath2: [64, 64, 1],
+  hero1: [HERO.run.frame, HERO.run.frame, 0], hero2: [HERO.run.frame, HERO.run.frame, 0],
+  hero1_death: [HERO.death.frame, HERO.death.frame, 0], hero2_death: [HERO.death.frame, HERO.death.frame, 0],
+  hero1_headless: [HERO.death.frame, HERO.death.frame, 0], hero2_headless: [HERO.death.frame, HERO.death.frame, 0],
   bomb1: [49, 49, 1], bomb2: [49, 49, 1],
   explosion: [147, 147, 1],
-  enemies: [49, 49, 0],
 };
 
 const range = (from, to) => {
@@ -50,23 +53,10 @@ export class BootScene extends Phaser.Scene {
         ...extra,
       });
 
-    for (const n of [1, 2]) {
-      // Обычная смерть — в сторону, куда смотрел герой (кадры из Player::NextStep).
-      make(`death${n}-left`, `death${n}`, range(0, 14), 10);
-      make(`death${n}-right`, `death${n}`, range(29, 15), 10);
-      make(`death${n}-up`, `death${n}`, range(30, 43), 10);
-      make(`death${n}-down`, `death${n}`, range(44, 57), 10);
-      // «Суперсмерть» — героя отбрасывает взрывом назад.
-      make(`super${n}-left`, `superdeath${n}`, range(0, 10), 8);   // смотрел влево — летит вправо
-      make(`super${n}-right`, `superdeath${n}`, range(21, 11), 8); // смотрел вправо — летит влево
-      make(`super${n}-up`, `superdeath${n}`, range(22, 32), 8);    // смотрел вверх — летит вниз
-      make(`super${n}-down`, `superdeath${n}`, range(33, 43), 8);  // смотрел вниз — летит вверх
-    }
     make('explosion', 'explosion', range(5, 18), 18, { hideOnComplete: true });
-    for (let tier = 0; tier < 4; tier++) {
-      make(`enemy${tier}`, 'enemies', range(tier * 4, tier * 4 + 3), 6, { repeat: -1 });
-    }
-    createEyeTextures(this);
+    createBlastTextures(this);
+    createItemTextures(this);
+    createBonesTextures(this);
     this.scene.start('menu');
   }
 }

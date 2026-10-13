@@ -57,6 +57,40 @@ export const SFX = {
     },
   },
 
+  crunch: {
+    title: 'Тварь откусила голову — «хрум!»',
+    play(s, o) {
+      // сухой треск, удар челюстей под ним и два затихающих «дожёвывания»
+      s.noise(B, { filter: 'bandpass', freq: 1900, q: 2, rate: 0.5, at: o.at, dur: 0.03, vol: 1.0, release: 0.05, pan: o.pan });
+      s.tone(B, { wave: 'triangle', freq: 170, to: 60, at: o.at, dur: 0.05, vol: 0.55, release: 0.06, pan: o.pan });
+      s.noise(B, { filter: 'bandpass', freq: 1200, q: 1.5, rate: 0.4, at: o.at + 0.1, dur: 0.035, vol: 0.7, release: 0.07, pan: o.pan });
+      s.noise(B, { filter: 'lowpass', freq: 800, rate: 0.3, at: o.at + 0.19, dur: 0.03, vol: 0.45, release: 0.1, pan: o.pan });
+    },
+  },
+
+  gnaw: {
+    title: 'Змея обгладывает кости — «хрум-хрум-хрум»',
+    play(s, o) {
+      [0, 1, 2, 3, 4, 5].forEach((i) => {
+        const at = o.at + i * 0.1;
+        s.noise(B, { filter: 'bandpass', freq: i % 2 ? 2100 : 1500, q: 2, rate: 0.5, at, dur: 0.025, vol: 0.75 - i * 0.06,
+          release: 0.04, pan: o.pan });
+        s.tone(B, { wave: 'triangle', freq: 150, to: 70, at, dur: 0.03, vol: 0.3, release: 0.04, pan: o.pan });
+      });
+    },
+  },
+
+  revive: {
+    title: 'Напарник воскрес — светлый перелив вверх',
+    play(s, o) {
+      [392, 523, 659, 784, 1047, 1319].forEach((f, i) =>
+        s.tone(B, { wave: 'triangle', freq: f, at: o.at + i * 0.07, dur: 0.08, vol: 0.4, release: 0.25, pan: o.pan }));
+      s.tone(B, { wave: 'sine', freq: 523, to: 1047, at: o.at, dur: 0.5, attack: 0.15, vol: 0.18, release: 0.3,
+        vibrato: { rate: 6, cents: 25, delay: 0.1 }, pan: o.pan });
+      s.noise(B, { filter: 'highpass', freq: 6000, at: o.at + 0.4, dur: 0.05, attack: 0.02, vol: 0.12, release: 0.4, pan: o.pan });
+    },
+  },
+
   ghostKilled: {
     title: 'Призрак уничтожен — «пуф»',
     play(s, o) {

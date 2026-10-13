@@ -3,6 +3,7 @@
 
 import { Net } from './net.js';
 import { WIDTH, HEIGHT } from './layout.js';
+import { BUTTONS } from './bunker.js';
 import { BootScene } from './scenes/BootScene.js';
 import { MenuScene } from './scenes/MenuScene.js';
 import { KeysScene } from './scenes/KeysScene.js';
@@ -60,5 +61,22 @@ fullscreen.addEventListener('click', () => {
   fullscreen.blur(); // иначе Пробел/Enter в игре снова «нажмут» кнопку
 });
 document.addEventListener('fullscreenchange', () => {
-  fullscreen.textContent = document.fullscreenElement ? '✕ Обычный экран' : '⛶ На весь экран';
+  fullscreen.textContent = document.fullscreenElement ? '✕' : '⛶';
+  fullscreen.title = document.fullscreenElement ? 'Обычный экран' : 'На весь экран';
+});
+
+// Кнопки стоят в нижней полосе правой панели и растут вместе с игрой: место и размер считаем от холста.
+const BUTTONS_FONT = 12;                       // размер шрифта кнопок в точках игры
+const buttons = document.getElementById('buttons');
+const placeButtons = () => {
+  const box = game.canvas.getBoundingClientRect();
+  const k = box.width / WIDTH;                 // во сколько раз игра растянута под окно
+  buttons.style.left = `${box.left + BUTTONS[0] * k}px`;
+  buttons.style.top = `${box.top + BUTTONS[1] * k}px`;
+  buttons.style.fontSize = `${BUTTONS_FONT * k}px`;
+  buttons.style.visibility = 'visible';
+};
+game.events.once('ready', () => {
+  game.scale.on('resize', placeButtons);
+  placeButtons();
 });

@@ -1,7 +1,9 @@
 // Общий фон для меню и настроек: затемнённое игровое поле и правая панель с героями —
 // вместо старой заставки (кадр из фильма «Мумия» убран).
 
-import { CELL, FIELD_SIZE, FIELD_X, FIELD_Y, GRID, PANEL_X, textStyle } from './layout.js';
+import { addPanel, count } from './bunker.js';
+import { CELL, FIELD_SIZE, FIELD_X, FIELD_Y, GRID, textStyle } from './layout.js';
+import { START_HAIKU } from './texts.js';
 
 export function drawBackdrop(scene) {
   scene.add.graphics().lineStyle(5, 0x0000c8).strokeRect(1, 1, FIELD_SIZE + 5, FIELD_SIZE + 5);
@@ -13,18 +15,18 @@ export function drawBackdrop(scene) {
     }
   }
 
-  scene.add.image(PANEL_X, 0, 'panel').setOrigin(0);
-  scene.add.image(760, 10, 'level_box').setOrigin(0);
-  scene.add.text(880, 16, 'BOMBERSYS', textStyle(26, '#9b0000')).setOrigin(0.5, 0);
-  scene.add.text(880, 80, 'возрождение\nигры 2005 года', textStyle(20, '#15093a', { align: 'center' })).setOrigin(0.5, 0);
+  const panel = addPanel(scene);                    // та же панель «блиндаж», что в игре
+  panel.title.setText('BOMBERSYS');
+  panel.line1.setText('возрождение');
+  panel.line2.setText('игры 2005 года');
+  panel.noteTitle.setText(START_HAIKU.title);
+  panel.note.setText(START_HAIKU.text);
   ['Иван', 'Игорь'].forEach((name, i) => {
-    const y = 405 + 170 * i;
-    scene.add.image(760, y, `face${i + 1}`).setOrigin(0);
-    scene.add.image(890, y, `stats${i + 1}`).setOrigin(0);
-    scene.add.text(814, y + 137, name, textStyle(18, '#0096ff')).setOrigin(0.5);
-    scene.add.text(944, y + 137, '0', textStyle(18, '#0096ff')).setOrigin(0.5);
-    scene.add.text(975, y + 40, '5', textStyle(32, '#0096ff')).setOrigin(0.5);
-    scene.add.text(975, y + 90, '3', textStyle(32, '#0096ff')).setOrigin(0.5);
+    const hero = panel.heroes[i];
+    hero.name.setText(name);
+    hero.score.setText('0');
+    hero.lives.setText(count(5));
+    hero.bombs.setText(count(3));
   });
 }
 

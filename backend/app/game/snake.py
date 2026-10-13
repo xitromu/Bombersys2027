@@ -2,7 +2,8 @@
 
 Голову ведёт тот же «мозг», что и обычных врагов (ai.py). За собой голова оставляет след (trail) —
 точки пути от самой свежей к старым; тело лежит на этом следе. Здесь только геометрия: где находятся
-части тела и как змея разворачивается, когда ползти вперёд некуда (хвост становится головой).
+части тела. Когда ползти вперёд некуда, голова поворачивает назад и ползёт вдоль собственного тела,
+а тело доходит до места разворота и поворачивает следом — петлёй.
 """
 
 from __future__ import annotations
@@ -12,7 +13,6 @@ import math
 from .board import Cell
 from .config import SNAKE_LENGTH
 from .entities import Enemy
-from .movement import cell_of
 
 Point = tuple[float, float]
 EPS = 1e-6
@@ -86,25 +86,10 @@ def leave_cell(snake: Enemy, cell: Cell) -> None:
             break
 
 
-def reverse(snake: Enemy) -> bool:
-    """Хвост становится головой: змея ползёт обратно по своему же следу.
+def fold(snake: Enemy) -> None:
+    """Голова поворачивает назад между клетками (впереди внезапно встала бомба).
 
-    Возвращает False, если разворачиваться нечем (змея ещё не сдвинулась с места).
+    Место разворота запоминаем в следе: тело доползёт до него и повернёт следом.
     """
-    line = path(snake)
-    if len(line) < 2:
-        return False
-    line.reverse()
-    (snake.x, snake.y), snake.trail = line[0], line[1:]
-    bx, by = snake.trail[0]                       # с этой стороны теперь тело
-    hx, hy = _sign(snake.x - bx), _sign(snake.y - by)
-    snake.heading = (hx, hy)
-    snake.came_from = cell_of(bx, by)
-    snake.target = None
-    here = snake.cell
-    if abs(snake.x - here[0]) > EPS or abs(snake.y - here[1]) > EPS:
-        # новая голова оказалась между клетками — доползает до ближайшего центра по ходу движения
-        tx = here[0] if hx == 0 else (math.floor(snake.x) + 1 if hx > 0 else math.ceil(snake.x) - 1)
-        ty = here[1] if hy == 0 else (math.floor(snake.y) + 1 if hy > 0 else math.ceil(snake.y) - 1)
-        snake.target = (tx, ty)
-    return True
+    snake.trail.insert(0, (snake.x, snake.y))
+    snake.heading = (-snake.heading[0], -snake.heading[1])

@@ -47,6 +47,10 @@ const SCENES = [
   ['Три призрака поймали героя', 'злорадный хор', (a) =>
     a.update(state([{ type: 'player_died', player: 0, kind: 'normal', cause: 'enemy', killer: null }],
       { enemies: [enemy(1, 3), enemy(2, 7), enemy(3, 11)] }))],
+  ['Змея съела героя', 'смех, потом обгладывает', (a) =>
+    a.update(state([{ type: 'player_died', player: 0, kind: 'normal', cause: 'snake', killer: null }]))],
+  ['Иван воскресил Игоря', 'справа', (a) =>
+    a.update(state([{ type: 'player_revived', player: 1, by: 0, x: 14, y: 14 }]))],
   ['Наступил на череп', 'ловушка', (a) =>
     a.update(state([{ type: 'player_died', player: 0, kind: 'normal', cause: 'trap', killer: null }]))],
   ['Иван убил призрака', '«пуф» и возглас', (a) =>

@@ -114,7 +114,6 @@ export class Sequencer {
   tick() {
     if (this.stopped) return;
     const now = this.synth.now;
-    if (this.time < now - 0.1) this.time = now + 0.02;  // вкладка «спала» — не выпаливаем пропущенное разом
     while (!this.stopped) {
       if (this.index >= this.events.length) {
         const endTime = this.time + (this.beats - this.beat) * this.secondsPerBeat;
@@ -128,7 +127,10 @@ export class Sequencer {
         return;
       }
       const e = this.events[this.index];
-      const at = this.time + (e.beat - this.beat) * this.secondsPerBeat;
+      let at = this.time + (e.beat - this.beat) * this.secondsPerBeat;
+      // Нота опоздала (вкладка «спала») — играем её сейчас и ведём счёт дальше от неё, а не выпаливаем
+      // пропущенное разом. Смотреть надо на саму ноту: между нотами медленной мелодии паузы долгие.
+      if (at < now - 0.1) at = now + 0.02;
       if (at > now + LOOKAHEAD) return;
       this.playEvent(e, at);
       this.beat = e.beat;

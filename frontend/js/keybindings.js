@@ -2,14 +2,16 @@
 // поэтому после настройки запоминается навсегда — для этого компьютера и браузера.
 // Клавиши записаны «физически» (event.code), так что русская раскладка не мешает.
 
-export const ACTIONS = ['up', 'down', 'left', 'right', 'bomb'];
-export const ACTION_NAMES = { up: 'Вверх', down: 'Вниз', left: 'Влево', right: 'Вправо', bomb: 'Бомба' };
+export const ACTIONS = ['up', 'down', 'left', 'right', 'bomb', 'revive'];
+export const ACTION_NAMES = {
+  up: 'Вверх', down: 'Вниз', left: 'Влево', right: 'Вправо', bomb: 'Бомба', revive: 'Воскресить',
+};
 // пауза, выход, звук и громкость — заняты всегда
 export const RESERVED = ['KeyP', 'Pause', 'Escape', 'KeyM', 'Minus', 'Equal', 'NumpadSubtract', 'NumpadAdd'];
 
 export const DEFAULT_BINDINGS = [
-  { up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD', bomb: 'Space' },
-  { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', bomb: 'Enter' },
+  { up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD', bomb: 'Space', revive: 'KeyE' },
+  { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', bomb: 'Enter', revive: 'ShiftRight' },
 ];
 
 const STORAGE_KEY = 'bombersys.keys';
@@ -18,7 +20,16 @@ export function loadBindings() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (Array.isArray(saved) && saved.length === 2) {
-      return saved.map((set, i) => ({ ...DEFAULT_BINDINGS[i], ...set }));
+      const bindings = saved.map((set, i) => ({ ...DEFAULT_BINDINGS[i], ...set }));
+      // Действие появилось в игре позже, чем раскладку сохранили, а его клавишу игрок уже отдал
+      // другому действию — оставляем его без клавиши: назначат в настройке.
+      const taken = saved.flatMap((set) => Object.values(set ?? {}));
+      bindings.forEach((keys, i) => {
+        for (const action of ACTIONS) {
+          if (!(action in (saved[i] ?? {})) && taken.includes(keys[action])) keys[action] = null;
+        }
+      });
+      return bindings;
     }
   } catch {
     // нет доступа к хранилищу или там мусор — берём раскладку по умолчанию

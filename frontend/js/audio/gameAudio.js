@@ -4,13 +4,14 @@
 import { GRID } from '../layout.js';
 import { sound } from './sound.js';
 
-const LEVEL_SONGS = ['levelA', 'levelB'];
+const LEVEL_SONGS = ['levelA', 'levelB', 'levelC', 'levelE', 'levelF', 'levelG'];
 const HURRY_TEMPO = 1.2;          // остался последний призрак — музыка ускоряется
 const NOTICE_REPEAT = 6;          // один и тот же призрак «ухает» не чаще раза в 6 с…
 const NOTICE_GAP = 1.2;           // …а все вместе — не чаще раза в 1,2 с
 const KILL_VOICE_GAP = 2.5;       // «Target destroyed!» не чаще раза в 2,5 с
-const COINS = new Set(['bag', 'bigbag', 'gems', 'legacy']);
+const COINS = new Set(['bag', 'bigbag', 'gems']);
 const IGOR_RATE = 0.86;         // у Игоря голос ниже — тот же диктор, но замедленный
+const GNAW_DELAY = 1.5;         // съеденный змеёй сначала падает, обгладывать его начинают через столько секунд
 
 const panOf = (x) => ((x / (GRID - 1)) * 2 - 1) * 0.7;
 const heroRate = (player) => (player === 1 ? IGOR_RATE : 1);
@@ -23,6 +24,14 @@ export class GameAudio {
     this.noticedAt = new Map();   // id призрака → когда «ухнул»
     this.lastNotice = -Infinity;
     this.lastKillVoice = -Infinity;
+    this.song = null;
+  }
+
+  // Мелодия уровня — наугад, но не та, что играла только что.
+  nextSong() {
+    const others = LEVEL_SONGS.filter((name) => name !== this.song);
+    this.song = others[Math.floor(Math.random() * others.length)];
+    return this.song;
   }
 
   update(state) {
@@ -45,7 +54,7 @@ export class GameAudio {
       sound.say('fighter_ready');
     } else if (now === 'playing' && before === 'ready') {
       sound.say('fighter_fight');
-      sound.music(LEVEL_SONGS[(state.level - 1) % LEVEL_SONGS.length]);
+      sound.music(this.nextSong());
     } else if (now === 'level_done') {
       const next = state.result === 'next';
       sound.jingle(next ? 'levelClear' : 'levelFail');
@@ -82,6 +91,9 @@ export class GameAudio {
           break;
         case 'player_died':
           this.onDeath(state, e);
+          break;
+        case 'player_revived':
+          sound.play('revive', { pan });
           break;
         case 'item_destroyed':
           sound.play('giftBurn', { pan });
@@ -120,8 +132,10 @@ export class GameAudio {
   onDeath(state, e) {
     const victim = state.players[e.player];
     const pan = victim ? panOf(victim.x) : 0;
-    if (e.cause === 'enemy' || e.cause === 'trap') {
+    if (e.cause === 'enemy' || e.cause === 'snake' || e.cause === 'trap') {
       if (e.cause === 'trap') sound.play('trap', { pan });
+      if (e.cause === 'enemy') sound.play('crunch', { pan });               // тварь откусила голову
+      if (e.cause === 'snake') sound.play('gnaw', { pan, delay: GNAW_DELAY });  // змея обгладывает уже лежащего
       // злорадствуют все призраки, но не больше трёх голосов, каждый своим тоном
       const laughers = Math.max(1, Math.min(3, state.enemies.length));
       [1, 0.8, 1.25].slice(0, laughers).forEach((pitch, i) =>
@@ -130,6 +144,12 @@ export class GameAudio {
       sound.jingle('victory', { overMusic: true });
       sound.say(e.kind === 'super' ? 'fighter_flawless_victory' : 'fighter_winner');
     }
+  }
+
+  // Враг добрался до лежащего тела (это замечает экран, а не сервер): kind — head (тварь съела голову)
+  // или bones (змея обглодала); x — клетка, где лежит тело.
+  bite(kind, x) {
+    sound.play(kind === 'head' ? 'crunch' : 'gnaw', { pan: panOf(x) });
   }
 
   onItem(e, pan) {

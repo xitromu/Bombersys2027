@@ -74,6 +74,113 @@ export const SONGS = {
       drums: { ...DRUMS, text: 'k . h k s . h . | k . h k s . h h' },
     },
   },
+  // Уровень, вариант В: «За дальний хребет», ре минор. Неторопливый походный напев в духе старинных
+  // песен у костра: мелодия идёт низко и ровно, под ней гудят ре и ля.
+  levelC: {
+    title: 'Уровень: «За дальний хребет»',
+    bpm: 100,
+    parts: {
+      lead: { ...LEAD, wave: 'square50', vol: 0.4, text: `
+        D4 - - A4 A4 - G4 F4 | G4 - - F4 E4 - D4 - | F4 - - G4 A4 - C5 A4 | A4 - - - - - . . |
+        D5 - - C5 A4 - G4 A4 | Bb4 - - A4 G4 - F4 - | E4 - - F4 G4 - E4 C4 | D4 - - - - - . . |
+        A4 - - D5 D5 - E5 F5 | E5 - - D5 C5 - A4 - | Bb4 - - C5 D5 - Bb4 G4 | A4 - - - - - A4 C5 |
+        D5 - - C5 A4 - F4 G4 | A4 - - G4 F4 - D4 - | E4 - F4 - G4 - E4 - | D4 - - - - - . .` },
+      low: { ...BASS, vol: 0.5, gate: 0.95, text: `
+        D3 | D3 | F3 | A2 | D3 | Bb2 | C3 | D3 | D3 | A2 | G2 | A2 | D3 | F3 | C3 | D3` },
+      bass: { ...BASS, text: `
+        D2 - - - A2 - - - | D2 - - - A2 - - - | F2 - - - C3 - - - | A2 - - - E2 - - - |
+        D2 - - - A2 - - - | Bb2 - - - F2 - - - | C2 - - - G2 - - - | D2 - - - A2 - D2 - |
+        D2 - - - A2 - - - | A2 - - - E2 - - - | G2 - - - D2 - - - | A2 - - - E2 - - - |
+        D2 - - - A2 - - - | F2 - - - C3 - - - | C2 - - - G2 - - - | D2 - - - A2 - D2 -` },
+      droneD: { ...DRONE, vol: 0.06, text: 'D3 - - - | - - - -' },
+      droneA: { ...DRONE, vol: 0.04, text: 'A3 - - - | - - - -' },
+      drums: { ...DRUMS, vol: 0.4, text: 'k . . h k . h . | k . . h k . s .' },
+    },
+  },
+
+  // Уровень, вариант Г: «Рояль в блиндаже», до мажор. Рок-баллада под рояль: левая рука качает бас,
+  // правая поёт; минорная субдоминанта (фа минор) добавляет «театра».
+  levelE: {
+    title: 'Уровень: «Рояль в блиндаже»',
+    bpm: 124,
+    parts: {
+      lead: { ...LEAD, text: `
+        E5 - G5 - C6 - B5 A5 | G5 - - D5 G5 - B5 - | C6 - B5 A5 E5 - A5 - | A5 - G5 F5 C5 - F5 - |
+        E5 - G5 - C6 - D6 E6 | E6 - D6 B5 G#5 - B5 - | C6 - - B5 A5 - E5 - | Ab5 - - G5 F5 - Ab5 - |
+        G5 - E5 - C5 - E5 G5 | F#5 - A5 - C6 - A5 F#5 | G5 - B5 - D6 - B5 G5 | F5 - G5 - B5 - D6 F6 |
+        E6 - - F6 C6 - A5 - | Eb6 - - F6 C6 - Ab5 - | G5 - E5 G5 A5 - C6 - | D6 - F5 A5 G5 - B5 D6` },
+      arp: { ...ARP, vol: 0.14, text: `
+        C | G | Am | F | C | E7 | Am | Fm | C | D7 | G | G7 | F | Fm | C Am | Dm G` },
+      bass: { ...BASS, text: `
+        C2 C3 G2 C3 C2 C3 G2 C3 | G2 G3 D3 G3 G2 G3 D3 G3 | A2 A3 E3 A3 A2 A3 E3 A3 | F2 F3 C3 F3 F2 F3 C3 F3 |
+        C2 C3 G2 C3 C2 C3 G2 C3 | E2 E3 B2 E3 E2 E3 B2 E3 | A2 A3 E3 A3 A2 A3 E3 A3 | F2 F3 C3 F3 F2 F3 C3 F3 |
+        C2 C3 G2 C3 C2 C3 G2 C3 | D2 D3 A2 D3 D2 D3 A2 D3 | G2 G3 D3 G3 G2 G3 D3 G3 | G2 G3 D3 G3 G2 G3 B2 D3 |
+        F2 F3 C3 F3 F2 F3 C3 F3 | F2 F3 C3 F3 F2 F3 C3 F3 | C2 C3 G2 C3 A2 A3 E3 A3 | D3 D3 A2 D3 G2 G3 D3 G3` },
+      drums: { ...DRUMS, vol: 0.45, text: `
+        k h s h k h s h | k h s h k h s h | k h s h k h s h | k h s h k k s h |
+        k h s h k h s h | k h s h k h s h | k h s h k h s h | k h s h s s s s` },
+    },
+  },
+
+  // Уровень, вариант Д: «Пляска у мельницы», соль мажор. Джига на 6/8, родня мелодии меню: дудочка
+  // с вибрато, под ней тянутся соль и ре, бас прыгает, барабан — бойран. Мелодия проходит дважды:
+  // второй раз (с 17-го такта) — с украшениями.
+  levelF: {
+    title: 'Уровень: «Пляска у мельницы»',
+    bpm: 180,
+    parts: {
+      lead: { ...LEAD, text: `
+        B5 - D6 D6 - E6 | D6 - B5 A5 - B5 | C6 - E6 E6 - C6 | D6 - B5 A5 - - |
+        B5 - D6 D6 - E6 | D6 - B5 E6 - D6 | C6 B5 A5 A5 - F#5 | G5 - - G5 B5 D6 |
+        E6 - C6 E6 D6 C6 | D6 - B5 D6 C6 B5 | C6 - A5 C6 B5 A5 | F#5 - A5 D6 - - |
+        E6 - B5 E6 D6 B5 | C6 - E6 E6 - C6 | D6 - B5 A5 - F#5 | G5 - D5 G5 - - |
+        B5 C6 D6 D6 - E6 | D6 - B5 B5 A5 G5 | C6 D6 E6 E6 D6 C6 | D6 C6 B5 A5 - - |
+        B5 C6 D6 D6 - E6 | D6 - B5 E6 - D6 | C6 B5 A5 A5 G5 F#5 | G5 - - G5 B5 D6 |
+        E6 - C6 E6 D6 C6 | D6 - B5 D6 C6 B5 | C6 - A5 C6 B5 A5 | F#5 - A5 D6 - - |
+        E6 - G6 E6 D6 B5 | C6 D6 E6 E6 D6 C6 | D6 - B5 A5 G5 F#5 | G5 - D5 G5 - -` },
+      arp: { ...ARP, vol: 0.1, text: 'G | G | C | D | G | Em | C D | G | C | G | Am | D | Em | C | D | G' },
+      bass: { ...BASS, text: `
+        G2 - D3 G3 - D3 | G2 - D3 G3 - D3 | C3 - G3 C4 - G3 | D2 - A2 D3 - A2 |
+        G2 - D3 G3 - D3 | E2 - B2 E3 - B2 | C3 - G3 D3 - A2 | G2 - D3 G3 - D3 |
+        C3 - G3 C4 - G3 | G2 - D3 G3 - D3 | A2 - E3 A3 - E3 | D2 - A2 D3 - A2 |
+        E2 - B2 E3 - B2 | C3 - G3 C4 - G3 | D2 - A2 D3 - A2 | G2 - D3 G3 - -` },
+      droneG: { ...DRONE, vol: 0.07, text: 'G3 - - - - - | - - - - - -' },
+      droneD: { ...DRONE, vol: 0.045, text: 'D3 - - - - - | - - - - - -' },
+      drums: { ...DRUMS, vol: 0.4, text: `
+        k h h s h h | k h h s h s | k h h s h h | k h h s h s |
+        k h h s h h | k h h s h s | k h h s h h | k h k s s s` },
+    },
+  },
+
+  // Уровень, вариант Е: «Волынка у костра», ми миксолидийский — мажор с пониженной седьмой ступенью,
+  // лад шотландской волынки. Тоже джига на 6/8, но смелее: тактам в ми отвечают такты тоном ниже, в ре.
+  // Под мелодией тянутся ми и си; проходит дважды, второй раз — с украшениями.
+  levelG: {
+    title: 'Уровень: «Волынка у костра»',
+    bpm: 176,
+    parts: {
+      lead: { ...LEAD, text: `
+        B5 - - C#6 B5 G#5 | E5 - G#5 B5 - - | A5 - - B5 A5 F#5 | D5 - F#5 A5 - - |
+        B5 - - C#6 B5 G#5 | E5 G#5 B5 E6 - - | D6 C#6 B5 A5 - F#5 | E5 - - B5 C#6 D6 |
+        E6 C#6 B5 E6 C#6 B5 | C#6 - B5 G#5 - B5 | D6 B5 A5 D6 B5 A5 | B5 - A5 F#5 - A5 |
+        E6 C#6 B5 E6 C#6 B5 | F#6 - E6 C#6 - E6 | D6 C#6 B5 A5 - F#5 | E5 - - E5 - - |
+        B5 - E6 C#6 B5 G#5 | E5 G#5 B5 B5 - - | A5 - D6 B5 A5 F#5 | D5 F#5 A5 A5 - - |
+        B5 - E6 C#6 B5 G#5 | E5 G#5 B5 C#6 D6 E6 | D6 C#6 B5 A5 - F#5 | E5 - - B5 C#6 D6 |
+        E6 C#6 B5 E6 C#6 B5 | C#6 - B5 G#5 - B5 | D6 B5 A5 D6 B5 A5 | B5 - A5 F#5 - A5 |
+        E6 C#6 B5 E6 C#6 B5 | F#6 - E6 C#6 - E6 | D6 C#6 B5 A5 - F#5 | E5 - B4 E5 - -` },
+      arp: { ...ARP, vol: 0.1, text: 'E | E | D | D | E | E | D | E | E | E | D | D | E | A | D | E' },
+      bass: { ...BASS, text: `
+        E2 - B2 E3 - B2 | E2 - B2 E3 - B2 | D2 - A2 D3 - A2 | D2 - A2 D3 - A2 |
+        E2 - B2 E3 - B2 | E2 - B2 E3 - B2 | D2 - A2 D3 - A2 | E2 - B2 E3 - B2 |
+        E2 - B2 E3 - B2 | E2 - B2 E3 - B2 | D2 - A2 D3 - A2 | D2 - A2 D3 - A2 |
+        E2 - B2 E3 - B2 | A2 - E3 A3 - E3 | D2 - A2 D3 - A2 | E2 - B2 E3 - -` },
+      droneE: { ...DRONE, vol: 0.07, text: 'E3 - - - - - | - - - - - -' },
+      droneB: { ...DRONE, vol: 0.045, text: 'B3 - - - - - | - - - - - -' },
+      drums: { ...DRUMS, vol: 0.45, text: `
+        k h h s h k | k h h s h h | k h h s h k | k h h s h s |
+        k h h s h k | k h h s h h | k h h s h k | k h k s s s` },
+    },
+  },
 };
 
 // Короткие заставки — играют один раз.

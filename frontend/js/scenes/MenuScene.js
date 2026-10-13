@@ -3,7 +3,7 @@
 import { FIELD_SIZE, FIELD_X, HEIGHT, textStyle } from '../layout.js';
 import { addButton, drawBackdrop, drawTitle } from '../backdrop.js';
 import { ACTIONS, keyLabel, loadBindings } from '../keybindings.js';
-import { EnemyEyes } from '../enemyEyes.js';
+import { EnemyView } from '../enemyView.js';
 import { sound } from '../audio/sound.js';
 import { gameVersion } from '../version.js';
 
@@ -27,11 +27,11 @@ export class MenuScene extends Phaser.Scene {
     this.time.addEvent({ delay: 2200, loop: true, callback: replay });
     // Зелёный спокойно озирается, красный уже «заметил» игрока.
     this.decor = [[150, 0, false], [590, 2, true]].map(([x, tier, alert]) => {
-      const sprite = this.add.sprite(x, 205, 'enemies').play(`enemy${tier}`).setScale(1.4);
-      const eyes = new EnemyEyes(this);
-      eyes.setAlert(alert);
-      return { sprite, eyes };
+      const view = new EnemyView(this, { tier });
+      view.image.setPosition(x, 205).setScale(view.image.scale * 1.4);
+      return { view, alert };
     });
+    this.events.once('shutdown', () => this.decor.forEach(({ view }) => view.destroy()));
 
     this.add.rectangle(CENTER_X, 480, 600, 420, 0x000000, 0.7).setStrokeStyle(2, 0x0000c8);
     const start = (players) => {
@@ -52,7 +52,9 @@ export class MenuScene extends Phaser.Scene {
       return `ходить: ${move}    бомба: ${keyLabel(set.bomb)}`;
     };
     this.add.text(CENTER_X, 510,
-      `Иван —  ${describe(keys[0])}\nИгорь —  ${describe(keys[1])}\n\nP — пауза,   Esc — в меню,   M — звук,   − / + — громкость`,
+      `Иван —  ${describe(keys[0])}\nИгорь —  ${describe(keys[1])}\n`
+      + `воскресить напарника:  Иван — ${keyLabel(keys[0].revive)},   Игорь — ${keyLabel(keys[1].revive)}\n\n`
+      + 'P — пауза,   Esc — в меню,   M — звук,   − / + — громкость',
       textStyle(19, '#cccccc', { align: 'center', lineSpacing: 6 })).setOrigin(0.5, 0);
 
     const status = this.add.text(CENTER_X, 700, '', textStyle(20, '#ff6666')).setOrigin(0.5);
@@ -75,8 +77,8 @@ export class MenuScene extends Phaser.Scene {
   }
 
   update(time) {
-    const angle = time / 900;
-    this.decor[0].eyes.follow(this.decor[0].sprite, [Math.cos(angle), Math.sin(angle * 0.7) * 0.6]);
-    this.decor[1].eyes.follow(this.decor[1].sprite, [-1, 0.3]);
+    const angle = time / 900, clock = time / 1000;
+    const looks = [[Math.cos(angle), Math.sin(angle * 0.7) * 0.6], [-1, 0.3]];
+    this.decor.forEach(({ view, alert }, i) => view.paint(clock, looks[i], alert));
   }
 }
