@@ -1,5 +1,6 @@
-// Что остаётся от героя, которого обглодала змея: скелет в сапогах или кучка костей с черепом.
-// Какое из двух — выбирает сервер. Шапки и прочего при костях нет: змея съедает всё.
+// Что остаётся от героя, которого обглодала змея: скелет или кучка костей с черепом — одни кости, без одежды и обуви.
+// Какое из двух — выбирает сервер. Размер — как у лежащего героя: скелет длиной с тело (около 60 точек).
+// Картинки героя сняты сверху наискосок, и лежащий вдоль экрана вверх-вниз выглядит короче — скелет тоже.
 // Нарисовано на холсте при запуске (createBonesTextures), готовых картинок нет.
 
 import { canvasTexture } from './canvasTexture.js';
@@ -7,13 +8,15 @@ import { canvasTexture } from './canvasTexture.js';
 const INK = '#120d0a';
 const BONE = ['#f6f1df', '#b4ab93'];
 const SIZE = 72;                      // сторона картинки: лежащий скелет длиннее клетки
-// Скелет лежит головой туда же, куда упал герой.
-const ANGLE = { right: 0, left: Math.PI, up: -Math.PI / 2, down: Math.PI / 2 };
+const SQUASH = 0.58;                  // во сколько раз короче то, что лежит вдоль экрана вверх-вниз
+const SQUASH_ACROSS = 0.8;            // так же для ширины тела: у героя её добавляет толщина тела
+// Куда головой лежит скелет — туда же, куда упал герой.
+const HEAD_TO = { right: [1, 0], left: [-1, 0], up: [0, -1], down: [0, 1] };
 
 // ------------------------------------------------------------ кисти
 
 // Заливает текущий контур переходом от светлого к тёмному и обводит.
-function ink(g, [light, dark], width = 1.1) {
+function ink(g, [light, dark], width = 0.8) {
   const paint = g.createLinearGradient(-6, -8, 6, 8);
   paint.addColorStop(0, light);
   paint.addColorStop(1, dark);
@@ -53,56 +56,40 @@ const fill = (g, color) => {
 };
 
 // Кость: палочка с утолщениями на концах.
-function bone(g, x0, y0, x1, y1, w = 2.2) {
-  for (const [width, color] of [[w + 2, INK], [w, BONE[0]]]) {
+function bone(g, x0, y0, x1, y1, w = 1.4) {
+  for (const [width, color] of [[w + 1.4, INK], [w, BONE[0]]]) {
     line(g, x0, y0, x1, y1, width, color);
     for (const [x, y] of [[x0, y0], [x1, y1]]) {
-      oval(g, x, y, (width + 1.1) / 2);
+      oval(g, x, y, (width + 0.7) / 2);
       fill(g, color);
     }
   }
 }
 
-// Череп сверху: макушка в сторону +x, лицом вверх.
-function skullTop(g, x) {
-  g.save();
-  g.translate(x, 0);
-  rect(g, -8.2, -3.4, 4.6, 6.8, 1.6);                           // челюсть
-  ink(g, BONE);
-  for (const y of [-1.6, 0, 1.6]) line(g, -8, y, -4.4, y, 0.7);
-  oval(g, 0, 0, 6.6, 5.9);
-  ink(g, BONE, 1.2);
-  for (const side of [-1, 1]) {
-    oval(g, -1.2, side * 2.5, 1.9, 1.7);
-    fill(g, INK);
-  }
-  poly(g, [[-3.4, 0], [-4.8, -1], [-4.8, 1]]);
-  fill(g, INK);
-  g.restore();
-}
-
 // ------------------------------------------------------------ кости (рисуются вокруг центра клетки)
 
-// Скелет лежит вдоль оси x, головой в сторону +x; середина тела в нуле. Остались одни сапоги.
-function skeleton(g) {
-  bone(g, -9.5, -3.2, -17.5, -4.3);                             // ноги
-  bone(g, -17.5, -4.3, -25, -3.6, 1.9);
-  bone(g, -9.5, 3.2, -17.5, 4.3);
-  bone(g, -17.5, 4.3, -25, 3.6, 1.9);
-  for (const side of [-1, 1]) {                                 // сапоги
-    rect(g, -29.5, side * 3.6 - 2.9, 7.5, 5.8, 2);
-    ink(g, ['#6a4a2c', '#2c1c0e']);
+// Скелет лежит на спине: u — вдоль тела (ступни −30, макушка +30), v — поперёк (правая рука −, левая +).
+// at переводит такую точку на экран: поворачивает головой к [dx, dy] и укорачивает то, что вдоль экрана вверх-вниз.
+function skeleton(g, [dx, dy]) {
+  const at = (u, v) => [dx * u - dy * v, dy * u * SQUASH + dx * v * SQUASH_ACROSS];
+  const b = (u0, v0, u1, v1, w) => bone(g, ...at(u0, v0), ...at(u1, v1), w);
+  const ovalAt = (u, v, ru, rv) => oval(g, ...at(u, v), Math.abs(dx) * ru + Math.abs(dy) * rv,
+    Math.abs(dy) * ru * SQUASH + Math.abs(dx) * rv * SQUASH_ACROSS);
+  for (const s of [-1, 1]) {                                    // ноги
+    b(-1.5, s * 3.8, -14.5, s * 3.4, 1.7);
+    b(-14.5, s * 3.4, -26.5, s * 3.2, 1.4);
+    b(-26.5, s * 3.2, -29.5, s * 3.8, 1.1);
   }
-  poly(g, [[-6, -5.6], [-10.6, -4.2], [-11.2, 0], [-10.6, 4.2], [-6, 5.6], [-7.6, 0]]);   // таз
-  ink(g, BONE);
-  bone(g, 10.5, 0, -7, 0, 2);                                   // хребет
-  for (let i = 0; i < 4; i++) {                                 // рёбра
-    const x = 8.4 - i * 2.5, far = 6.6 - i * 0.35;
-    for (const side of [-1, 1]) {
-      for (const [width, color] of [[3, INK], [1.5, BONE[0]]]) {
+  poly(g, [[3, -5.2], [-1, -5.8], [-3.6, -2.6], [-3.6, 2.6], [-1, 5.8], [3, 5.2], [1, 0]].map(([u, v]) => at(u, v)));
+  ink(g, BONE);                                                 // таз
+  b(1, 0, 19.5, 0, 1.3);                                        // хребет
+  for (let i = 0; i < 5; i++) {                                 // рёбра
+    const u = 16 - i * 2.2, far = 5.4 - i * 0.35;
+    for (const s of [-1, 1]) {
+      for (const [width, color] of [[2.2, INK], [1, BONE[0]]]) {
         g.beginPath();
-        g.moveTo(x, 0);
-        g.quadraticCurveTo(x + 1.3, side * (far - 1), x - 1.5, side * far);
+        g.moveTo(...at(u, 0));
+        g.quadraticCurveTo(...at(u + 1, s * (far - 1)), ...at(u - 1.6, s * far));
         g.lineCap = 'round';
         g.lineWidth = width;
         g.strokeStyle = color;
@@ -110,57 +97,64 @@ function skeleton(g) {
       }
     }
   }
-  for (const side of [-1, 1]) {                                 // руки вдоль тела
-    bone(g, 8.5, side * 6.8, 1.5, side * 10.2, 1.9);
-    bone(g, 1.5, side * 10.2, -5, side * 8.6, 1.7);
+  for (const s of [-1, 1]) {                                    // ключицы и руки вдоль тела
+    b(18, s * 1, 17.5, s * 6.6, 1);
+    b(17.5, s * 7.4, 6.5, s * 8.4, 1.3);
+    b(6.5, s * 8.4, -2.5, s * 8.2, 1.1);
+    b(-2.5, s * 8.2, -6.5, s * 7.6, 1);
   }
-  skullTop(g, 17.2);
-}
-
-// Кучка: череп смотрит на нас, под ним кости крест-накрест.
-function pile(g) {
-  bone(g, -15, 9, 15, -1, 2.6);
-  bone(g, -15, -1, 15, 9, 2.6);
-  for (const [x, a] of [[-9, 0.5], [9, -0.5]]) {
-    g.save();
-    g.translate(x, 12);
-    g.rotate(a);
-    bone(g, -5, 0, 5, 0, 1.7);
-    g.restore();
-  }
-  rect(g, -5.6, 3.5, 11.2, 7.5, 2.4);
+  ovalAt(21.6, 0, 1.6, 2.4);                                    // череп лицом вверх: челюсть, голова
   ink(g, BONE);
-  oval(g, 0, -1.5, 9.6, 8.8);
-  ink(g, BONE, 1.3);
-  for (const side of [-1, 1]) {
-    oval(g, side * 3.9, -1, 2.8, 3.1);
+  ovalAt(26, 0, 4.2, 3.2);
+  ink(g, BONE, 0.9);
+  for (const s of [-1, 1]) {
+    ovalAt(25, s * 1.4, 1.1, 1);                                // глазницы
     fill(g, INK);
   }
-  poly(g, [[0, 2.4], [-1.5, 5.2], [1.5, 5.2]]);
+  ovalAt(23.2, 0, 0.6, 0.5);                                    // нос
   fill(g, INK);
-  for (const x of [-2.7, 0, 2.7]) line(g, x, 7, x, 11, 0.9);
 }
 
-// Скелет — по картинке на каждую сторону, куда упал герой; кучка — одна.
-// Тень под костями уже в картинке (и не поворачивается вместе со скелетом).
-export function createBonesTextures(scene) {
-  const onShadow = (draw) => (g) => {
-    g.translate(SIZE / 2, SIZE / 2);
-    oval(g, 1, 3, 22, 10);
-    fill(g, 'rgba(0, 0, 0, 0.22)');
-    draw(g);
-  };
-  for (const [facing, angle] of Object.entries(ANGLE)) {
-    canvasTexture(scene, bonesKey('skeleton', facing), SIZE, SIZE, onShadow((g) => {
-      g.rotate(angle);
-      g.scale(0.94, 0.94);
-      skeleton(g);
-    }));
+// Кучка: череп смотрит на нас, под ним кости крест-накрест; череп — с голову героя.
+function pile(g) {
+  bone(g, -8, 4.5, 8, -1, 1.6);
+  bone(g, -8, -1, 8, 4.5, 1.6);
+  for (const [x, a] of [[-5, 0.5], [5, -0.5]]) {
+    g.save();
+    g.translate(x, 6.5);
+    g.rotate(a);
+    bone(g, -3, 0, 3, 0, 1.1);
+    g.restore();
   }
-  canvasTexture(scene, bonesKey('pile'), SIZE, SIZE, onShadow((g) => {
-    g.translate(0, 2);
+  rect(g, -3, 1.6, 6, 4, 1.3);                                  // челюсть
+  ink(g, BONE);
+  for (const x of [-1.4, 0, 1.4]) line(g, x, 3.6, x, 5.6, 0.5);
+  oval(g, 0, -1, 5.2, 4.8);
+  ink(g, BONE, 0.9);
+  for (const side of [-1, 1]) {
+    oval(g, side * 2.1, -0.6, 1.5, 1.7);
+    fill(g, INK);
+  }
+  poly(g, [[0, 1.2], [-0.8, 2.7], [0.8, 2.7]]);
+  fill(g, INK);
+}
+
+// Скелет — по картинке на каждую сторону, куда упал герой; кучка — одна. Тень под костями уже в картинке.
+export function createBonesTextures(scene) {
+  for (const [facing, [dx, dy]] of Object.entries(HEAD_TO)) {
+    canvasTexture(scene, bonesKey('skeleton', facing), SIZE, SIZE, (g) => {
+      g.translate(SIZE / 2, SIZE / 2);
+      oval(g, 0, 1.5, dx ? 31 : 10, dx ? 10 * SQUASH_ACROSS : 31 * SQUASH);
+      fill(g, 'rgba(0, 0, 0, 0.22)');
+      skeleton(g, [dx, dy]);
+    });
+  }
+  canvasTexture(scene, bonesKey('pile'), SIZE, SIZE, (g) => {
+    g.translate(SIZE / 2, SIZE / 2);
+    oval(g, 0.5, 4.5, 11, 4.5);
+    fill(g, 'rgba(0, 0, 0, 0.22)');
     pile(g);
-  }));
+  });
 }
 
 // Какая картинка нужна: kind — skeleton или pile (как прислал сервер), facing — куда смотрел герой,

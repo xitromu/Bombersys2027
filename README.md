@@ -140,7 +140,7 @@ BOMBERSYS/
 │   ├── sounds.html        ← проверка звуков: послушать музыку, эффекты и голоса по отдельности
 │   ├── sounds/voice/      ← голоса (Kenney.nl, свободная лицензия CC0)
 │   ├── vendor/phaser.min.js   ← движок 2D-игр Phaser 3.80 (лежит в проекте)
-│   ├── assets/            ← PNG-картинки (из legacy/*.bmp; герои — из кадров Blender; photo1/2.png — фото героев на панели)
+│   ├── assets/            ← PNG-картинки (из legacy/*.bmp; герои — человек MakeHuman, снятый в Blender; photo1/2.png — фото героев на панели)
 │   └── js/
 │       ├── main.js        ← запуск Phaser
 │       ├── net.js         ← связь с сервером
@@ -150,13 +150,13 @@ BOMBERSYS/
 │       ├── backdrop.js    ← общий фон меню и настроек
 │       ├── layout.js      ← размеры и координаты экрана
 │       ├── heroView.js    ← герой на экране: бег, гибель, тень, лужа крови; съеденная голова, воскрешение
-│       ├── heroMeta.js    ← размеры кадров героя и таблицы гибели (пишет tools/build_hero.py)
+│       ├── heroMeta.js    ← размеры кадров героя и таблицы гибели (пишет mockups/realhero/build_real.py)
 │       ├── blastView.js   ← бомба и взрыв на экране: огонь в коридорах, искры, дым, копоть, обломки стен
 │       ├── snakeView.js   ← змея на экране: гадюка лентой вдоль своего пути, разворот петлёй
 │       ├── enemyView.js   ← твари на экране: «зубастики» четырёх ступеней, шагают и лязгают зубами
 │       ├── banners.js     ← надписи поверх поля: доски «ПРИГОТОВЬТЕСЬ» и «ПАУЗА»
 │       ├── itemView.js    ← бонусы и дверь: рисуются на холсте, покачиваются и искрят
-│       ├── bonesView.js   ← кости после змеи: скелет в сапогах или кучка костей
+│       ├── bonesView.js   ← кости после змеи: скелет или кучка костей, по размеру героя
 │       ├── bunker.js      ← оформление «блиндаж»: дощатая стена, листки, правая панель с фотографиями героев
 │       ├── canvasTexture.js ← картинки, которые игра рисует сама при запуске (вместо готовых файлов)
 │       ├── audio/         ← звук: синтезатор, музыка (songs.js), эффекты (sfx.js), озвучка событий
@@ -164,7 +164,7 @@ BOMBERSYS/
 │
 ├── tools/
 │   ├── convert_assets.py  ← BMP → PNG (прежних врагов-призраков и надписи игра больше не использует)
-│   ├── build_hero.py      ← кадры Blender → листы картинок героев (hero*.png) и heroMeta.js
+│   ├── build_hero.py      ← кадры Blender → листы героев-фигурок (до 0.5.0; его функции берёт и build_real.py)
 │   └── make_icon.py       ← рисует иконку игры (бомба с фитилём)
 │
 └── legacy/                ← СТАРЫЙ ПРОЕКТ 2005 года, как был (архив)
@@ -180,7 +180,7 @@ BOMBERSYS/
 | Прогнать тесты | `uv run pytest` |
 | Посмотреть таблицу сложности | `uv run python -m app.game.difficulty` |
 | Пересобрать картинки из BMP | `python ../tools/convert_assets.py` |
-| Пересобрать картинки героев из кадров Blender (около минуты) | из корня проекта: `C:\Blender\blender.exe -b --factory-startup --python-exit-code 1 -P tools/build_hero.py` |
+| Пересобрать картинки героев из кадров Blender (около минуты; сценарии и кадры — в `mockups/realhero`, в репозиторий не входят) | из корня проекта: `C:\Blender\blender.exe -b --factory-startup --python-exit-code 1 -P mockups/realhero/build_real.py -- --install` |
 | Послушать и проверить звуки | запустить игру и открыть в браузере `/sounds.html` |
 | Поменять номер версии | `version` в `backend/pyproject.toml` (меню показывает его внизу) |
 | Собрать BOMBERSYS.exe | `packaging\build_exe.bat` → `backend\dist\BOMBERSYS.exe` |
@@ -199,6 +199,23 @@ BOMBERSYS/
 Со 2-го уровня каждый третий враг — «сильный»: на ступень выше цветом, быстрее, зорче и умнее.
 С 4-го уровня враги начинают обходить бомбы и огонь. С каждым уровнем они дольше
 помнят, где видели игрока. Цвет врагов меняется каждые 3 уровня: зелёные → оранжевые → красные → фиолетовые.
+
+## Авторы и лицензии
+
+- Герои — человек [MakeHuman](http://www.makehuman.org/) (дополнение MPFB для Blender): тело, кожа, волосы,
+  брови, глаза — CC0.
+- Одежда героев — из библиотеки сообщества MakeHuman; перекрашена и доработана (добавлены ремни, портупея,
+  подсумки, бинты, стёжка, мех, грязь):
+  - куртка и брюки спасателя (`rescueteam jacket / pants male`) — Elvaerwyn и punkduck, CC BY 4.0;
+  - комбинезон (`male coveralls`) — Elvaerwyn, CC BY 4.0;
+  - сапоги (`riding boots`) — punkduck, CC BY 4.0;
+  - шапка (`sherpa hat`, у нас — ушанка) — Mindfront, CC BY 4.0;
+  - борода и усы «викинг» — Rehman Polanski, CC0.
+
+  Лицензия CC BY 4.0: <https://creativecommons.org/licenses/by/4.0/deed.ru>
+- Бег героя — запись движения из базы CMU Graphics Lab Motion Capture Database (<http://mocap.cs.cmu.edu>);
+  база создана при поддержке NSF EIA-0196217.
+- Голоса — Kenney.nl, CC0.
 
 ## Про старую версию
 

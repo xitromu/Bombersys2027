@@ -113,16 +113,12 @@ function retouched(width, height, draw, edit) {
   return canvas;
 }
 
-// Бомба на счётчике — та же связка динамита, что ставит герой n (первый кадр bomb<n>.png), только серая.
-// Середина картинки — в (x, y); размер как на поле.
+// Бомба на счётчике — та же связка динамита, что ставит герой n (первый кадр bomb<n>.png), в его цвете:
+// красная у Ивана, зелёная у Игоря. Середина картинки — в (x, y); размер как на поле.
 function bombIcon(g, scene, n, x, y) {
   const sprite = scene.textures.get(`bomb${n}`).getSourceImage();
-  const gray = retouched(CELL, CELL, (c) => c.drawImage(sprite, 0, 0, CELL, CELL, 0, 0, CELL, CELL), (px, i) => {
-    // по самой яркой составляющей: красная связка Ивана и зелёная Игоря выходят одного серого тона
-    px[i] = px[i + 1] = px[i + 2] = Math.max(px[i], px[i + 1], px[i + 2]) * 0.82;
-  });
   g.imageSmoothingEnabled = false;                            // точка в точку, как на поле
-  g.drawImage(gray, x - CELL / 2, y - CELL / 2, CELL, CELL);
+  g.drawImage(sprite, 0, 0, CELL, CELL, x - CELL / 2, y - CELL / 2, CELL, CELL);
   g.imageSmoothingEnabled = true;
 }
 
