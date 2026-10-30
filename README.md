@@ -167,6 +167,8 @@ BOMBERSYS/
 │   ├── build_hero.py      ← кадры Blender → листы героев-фигурок (до 0.5.0; его функции берёт и build_real.py)
 │   └── make_icon.py       ← рисует иконку игры (бомба с фитилём)
 │
+├── promo/                 ← промо-ролик в духе рекламы автоматов 80–90-х: съёмка игры, Blender, музыка, монтаж
+│
 └── legacy/                ← СТАРЫЙ ПРОЕКТ 2005 года, как был (архив)
     ├── *.bmp              ← исходная графика
     └── UMIRAYUT/          ← исходники C++/MFC и собранный B.exe
@@ -184,6 +186,7 @@ BOMBERSYS/
 | Послушать и проверить звуки | запустить игру и открыть в браузере `/sounds.html` |
 | Поменять номер версии | `version` в `backend/pyproject.toml` (меню показывает его внизу) |
 | Собрать BOMBERSYS.exe | `packaging\build_exe.bat` → `backend\dist\BOMBERSYS.exe` |
+| Собрать промо-ролик (нужны материалы в `promo/work`: их делают `capture.py`, `render_logo.py`, `render_heroes.py`, `render_audio.py`, `voice.py`) | из корня проекта: `powershell -File promo\run_video.ps1` → `promo\out\BOMBERSYS-promo.mp4` |
 
 ## Сложность
 
@@ -216,6 +219,9 @@ BOMBERSYS/
 - Бег героя — запись движения из базы CMU Graphics Lab Motion Capture Database (<http://mocap.cs.cmu.edu>);
   база создана при поддержке NSF EIA-0196217.
 - Голоса — Kenney.nl, CC0.
+- Промо-ролик: мелодия и звуки — свои, на синтезаторе игры; голос диктора — модель
+  [Silero](https://github.com/snakers4/silero-models), лицензия CC BY-NC-SA (только некоммерческое использование);
+  пиксельный шрифт на экране — системный растровый шрифт Windows.
 
 ## Про старую версию
 
