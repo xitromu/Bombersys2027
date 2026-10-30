@@ -32,6 +32,7 @@ WORK = HERE / "work"
 OUT = HERE / "out"
 W, H, FPS, RATE = 1280, 720, 30, 48000
 BAR = 1.5
+NET_AT = 21 * BAR + 0.75   # реплика «или по сети»: отсюда на экране два ноутбука
 TOTAL = 54.9
 VERSION = "0.5.0"
 URL = "github.com/xitromu/Bombersys2027"
@@ -472,10 +473,10 @@ def scene_logo(t):
     img = neon_bg(t, 0.8)
     put_logo(img, 90 + t * 30)
     shock(img, t)
-    if t >= 1.3:
-        slam(img, sprite("ИГРОВОЙ АВТОМАТ", 6, ICE), W / 2, 530, t - 1.3)
-    if t >= 2.2:
-        slam(img, sprite("У ВАС ДОМА!", 8, FIRE), W / 2, 625, t - 2.2)
+    if t >= 0.65:
+        slam(img, sprite("ИГРОВОЙ АВТОМАТ", 6, ICE), W / 2, 530, t - 0.65)
+    if t >= 1.6:
+        slam(img, sprite("У ВАС ДОМА!", 8, FIRE), W / 2, 625, t - 1.6)
     return img
 
 
@@ -730,8 +731,8 @@ SHOTS = [
     {"start": g(7), "end": g(8), "take": "play", "at": 4.8, "z": 2.0, "focus": 1},
     {"start": g(8), "end": g(9), "take": "play", "at": 10.8, "z": 1.9, "focus": 0},
     {"start": g(9), "end": g(12), "take": "chain", "at": 2.78 - 1.5, "z": 1.74, "focus": (7, 8)},
-    {"start": g(20), "end": g(22), "take": "level10", "at": 7.0},
-    {"start": g(22), "end": g(24), "take": "level10", "at": 15.2, "z": 1.74, "focus": 1},
+    {"start": g(20), "end": NET_AT, "take": "level10", "at": 7.0},
+    {"start": NET_AT, "end": g(24), "take": "level10", "at": 13.45, "z": 1.74, "focus": 1},
     {"start": g(24), "end": g(26), "take": "revive", "at": 8.8 - 1.5},
     {"start": g(26), "end": g(26) + 0.5, "take": "play", "at": 18.2, "z": 1.74, "focus": 0, "level": 2},
     {"start": g(26) + 0.5, "end": g(26) + 1.0, "take": "snake", "at": 3.2, "z": 1.74, "focus": 1, "level": 7},
@@ -789,12 +790,12 @@ def compose(now):
         slam(img, sprite("ЗМЕЯ!", 9, LIME), W / 2, 112, now - g(18))
         if now >= g(19):
             slam(img, sprite("ДО КОСТЕЙ!", 10, BLOOD), W / 2, H - 92, now - g(19))
-    if g(20) <= now < g(22):
+    if g(20) <= now < NET_AT:
         put_burst(img, burst(["2", "ИГРОКА!"], 250, scale=6), 990, 190, now, now - g(20))
-        if now >= g(20) + 1.0:
-            overlay_keyboard(img, now - g(20) - 1.0)
-    if g(22) <= now < g(24):
-        overlay_laptops(img, now, now - g(22))
+        if now >= g(20) + 0.85:
+            overlay_keyboard(img, now - g(20) - 0.85)
+    if NET_AT <= now < g(24):
+        overlay_laptops(img, now, now - NET_AT)
     if g(24) <= now < g(26):
         if now < g(25):
             slam(img, sprite("ПОГИБ НАПАРНИК?", 6, ICE), 640, 620, now - g(24))
@@ -958,17 +959,17 @@ def voice_fx(mono, slow=0.965):
     return out
 
 
-VO = [("title", g(4) + 0.3), ("home", g(4) + 1.3), ("bombs", g(6) + 0.35), ("chain", g(10) - 0.5), ("choose", g(12) + 0.1),
+VO = [("title", g(4) - 1.68), ("home", g(4) + 0.55), ("bombs", g(6) + 0.35), ("chain", g(10) - 0.5), ("choose", g(12) + 0.1),
       ("ivan", g(13) + 0.1), ("igor", g(14) + 0.1), ("toothy", g(16) + 0.1), ("snake", g(18) + 0.15), ("two", g(20) + 0.1),
       ("revive", g(24) + 0.1), ("levels", g(26) + 0.1), ("free", g(28) + 0.1), ("github", g(30) + 0.25), ("legal", g(33) + 0.0)]
 ENGLISH = [("fighter_ready", 2.25, 0.85), ("fighter_multi_kill", g(11) + 0.2, 0.9),
            ("fighter_ready", g(15) + 0.1, 0.9), ("fighter_fight", g(15) + 1.0, 1.0), ("female_new_highscore", g(26) + 2.75, 0.8)]
-SOUNDS = [("crtOn", 0.0, 0.5), ("clink", 1.5, 0.9), ("credit", 1.72, 0.6), ("static", 2.85, 0.5), ("whoosh", 3.1, 0.75),
-          ("bigboom", g(4), 0.75), ("slam", g(4) + 1.3, 0.5), ("slam", g(4) + 2.2, 0.6), ("slam", g(6) + 0.35, 0.4),
+SOUNDS = [("crtOn", 0.0, 0.5), ("clink", 1.5, 0.9), ("credit", 1.72, 0.6), ("static", 2.85, 0.5), ("whoosh", 3.1, 0.25),
+          ("bigboom", g(4), 0.6), ("slam", g(4) + 0.65, 0.4), ("slam", g(4) + 1.6, 0.5), ("slam", g(6) + 0.35, 0.4),
           ("slam", g(6) + 1.35, 0.4), ("slam", g(6) + 2.35, 0.4), ("bigboom", g(10), 0.9), ("slam", g(10) + 0.3, 0.6),
           ("slam", g(12), 0.6), ("slam", g(13), 0.5), ("slam", g(14), 0.5), ("slam", g(15), 0.7), ("slam", g(16), 0.7),
-          ("crunch", BITE_AT, 1.0), ("slam", BITE_AT, 0.7), ("slam", g(19), 0.7), ("slam", g(20), 0.9), ("slam", g(21), 0.45),
-          ("slam", g(22), 0.5), ("revive", g(25), 0.9), ("slam", g(26), 0.6), ("tick", g(26) + 0.5, 0.8),
+          ("crunch", BITE_AT, 1.0), ("slam", BITE_AT, 0.7), ("slam", g(19), 0.7), ("slam", g(20), 0.9), ("slam", g(20) + 0.85, 0.45),
+          ("slam", NET_AT, 0.5), ("revive", g(25), 0.9), ("slam", g(26), 0.6), ("tick", g(26) + 0.5, 0.8),
           ("tick", g(26) + 1.0, 0.8), ("slam", g(26) + 1.5, 0.6), ("slam", g(28), 0.7), ("slam", g(29), 0.6),
           ("fanfare", g(29), 0.55), ("slam", g(30), 0.6), ("bigboom", g(35), 0.8), ("crtOff", 54.0, 0.6)]
 for tier in range(4):
