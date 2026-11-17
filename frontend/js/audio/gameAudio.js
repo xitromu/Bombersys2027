@@ -10,6 +10,7 @@ const NOTICE_REPEAT = 6;          // один и тот же призрак «у
 const NOTICE_GAP = 1.2;           // …а все вместе — не чаще раза в 1,2 с
 const KILL_VOICE_GAP = 2.5;       // «Target destroyed!» не чаще раза в 2,5 с
 const COINS = new Set(['bag', 'bigbag', 'gems']);
+const MECHANICS = new Set(['remote', 'fire', 'shield', 'boots']);
 const IGOR_RATE = 0.86;         // у Игоря голос ниже — тот же диктор, но замедленный
 const GNAW_DELAY = 1.5;         // съеденный змеёй сначала падает, обгладывать его начинают через столько секунд
 
@@ -85,6 +86,24 @@ export class GameAudio {
           kills.push(e);
           sound.play('ghostKilled', { pan, pitch: 1 - e.tier * 0.12 });
           break;
+        case 'armor_cracked':
+          sound.play('wall', { pan });
+          break;
+        case 'boss_phase':
+          sound.play('doorBreak', { pan });
+          sound.play('ghostNotice', { pan, pitch: 0.55, delay: 0.15 });
+          break;
+        case 'enemy_enraged':
+          sound.play('ghostNotice', { pan, pitch: 0.6 });
+          break;
+        case 'door_appeared':
+          sound.play('doorOpen', { pan });
+          break;
+        case 'shield_saved': {
+          const saved = state.players[e.player];
+          sound.play('revive', { pan: saved ? panOf(saved.x) : 0 });
+          break;
+        }
         case 'all_enemies_killed':
           sound.say('female_objective_achieved');
           if (e.door_unlocked) sound.play('doorOpen', { pan: panOf(e.x), delay: 0.3 });
@@ -121,11 +140,12 @@ export class GameAudio {
     // Взрывы и стены за один «тик» — одним звуком, чуть громче, если их много.
     if (explosions) sound.play('explosion', { vol: Math.min(1.3, 0.85 + 0.15 * explosions), pitch: 0.9 + Math.random() * 0.2, minGap: 0.06 });
     if (walls) sound.play('wall', { minGap: 0.05 });
-    if (kills.length >= 2) {
+    const heroKills = kills.filter((k) => k.player !== null && k.player !== undefined);
+    if (heroKills.length >= 2) {
       sound.say('fighter_multi_kill');
-    } else if (kills.length === 1 && seconds() - this.lastKillVoice > KILL_VOICE_GAP) {
+    } else if (heroKills.length === 1 && seconds() - this.lastKillVoice > KILL_VOICE_GAP) {
       this.lastKillVoice = seconds();
-      sound.say('male_war_target_destroyed', { rate: heroRate(kills[0].player) });
+      sound.say('male_war_target_destroyed', { rate: heroRate(heroKills[0].player) });
     }
   }
 
@@ -155,7 +175,7 @@ export class GameAudio {
   onItem(e, pan) {
     if (COINS.has(e.kind)) sound.play('coin', { pan });
     else if (e.kind === 'chest') sound.play('chest', { pan });
-    else if (e.kind === 'bomb') {
+    else if (e.kind === 'bomb' || MECHANICS.has(e.kind)) {
       sound.play('powerUp', { pan });
       sound.say('male_power_up', { rate: heroRate(e.player) });
     } else if (e.kind === 'life') sound.jingle('oneUp', { overMusic: true });

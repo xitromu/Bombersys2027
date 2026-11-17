@@ -10,7 +10,8 @@ from .conftest import make_game, run
 
 
 def test_difficulty_grows_smoothly_and_never_falls():
-    levels = [for_level(n) for n in range(1, 21)]
+    # арены босса (каждый 5-й уровень) — отдельный жанр: мало стен и врагов, плавный рост их не касается
+    levels = [for_level(n) for n in range(1, 21) if n % 5 != 0]
     for field in ("enemies", "enemy_speed", "sight", "smart", "memory", "avoid_danger", "walls"):
         values = [getattr(s, field) for s in levels]
         assert values == sorted(values), field

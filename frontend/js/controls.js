@@ -27,6 +27,7 @@ export class Controls {
         const dir = DIRECTIONS.find((d) => keys[d] === event.code);
         if (dir) this.press(player, dir);
         if (keys.bomb === event.code) this.net.send({ type: 'bomb', player });
+        if (keys.detonate === event.code) this.net.send({ type: 'detonate', player });   // пульт: подорвать свою бомбу
         if (keys.revive === event.code) this.net.send({ type: 'revive', player });   // поднять погибшего напарника
       });
     };

@@ -82,7 +82,10 @@ export class BombView {
   constructor(scene, bomb, now) {
     this.x = cellCenterX(bomb.x);
     this.y = cellCenterY(bomb.y);
-    this.sprite = scene.add.sprite(this.x, this.y, `bomb${bomb.owner + 1}`, 0).setDepth(DEPTH.bombs);
+    // бомба подрывника (owner < 0) — та же связка, но тёмная, «чужая»
+    this.enemy = bomb.owner < 0;
+    this.sprite = scene.add.sprite(this.x, this.y, `bomb${this.enemy ? 1 : bomb.owner + 1}`, 0).setDepth(DEPTH.bombs);
+    if (this.enemy) this.sprite.setTint(0x8a8a8a);
     this.glow = scene.add.image(this.x, this.y, 'fx_spark').setBlendMode(ADD).setDepth(DEPTH.bombs + 0.01)
       .setDisplaySize(18, 18);
     this.at = now;
@@ -94,6 +97,10 @@ export class BombView {
     this.progress = bomb.progress;
     this.frame = Math.min(FUSE_TIPS.length - 1, Math.floor(bomb.progress * FUSE_TIPS.length));
     this.sprite.setFrame(this.frame);
+    if (!this.enemy) {
+      if (bomb.remote) this.sprite.setTint(0x7ab8ff);   // пультовая: ждёт клавиши, синяя
+      else this.sprite.clearTint();
+    }
   }
 
   draw(now) {

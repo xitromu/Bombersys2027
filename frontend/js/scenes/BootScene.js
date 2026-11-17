@@ -19,6 +19,7 @@ const SHEETS = {
   hero1: [HERO.run.frame, HERO.run.frame, 0], hero2: [HERO.run.frame, HERO.run.frame, 0],
   hero1_death: [HERO.death.frame, HERO.death.frame, 0], hero2_death: [HERO.death.frame, HERO.death.frame, 0],
   hero1_headless: [HERO.death.frame, HERO.death.frame, 0], hero2_headless: [HERO.death.frame, HERO.death.frame, 0],
+  hero1_half: [HERO.death.frame, HERO.death.frame, 0], hero2_half: [HERO.death.frame, HERO.death.frame, 0],
   bomb1: [49, 49, 1], bomb2: [49, 49, 1],
   explosion: [147, 147, 1],
 };

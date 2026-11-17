@@ -16,7 +16,7 @@ import random
 from collections import deque
 from collections.abc import Callable, Iterable
 
-from .board import Board, Cell
+from .board import PILLAR, Board, Cell
 from .entities import Enemy, Player
 
 GREEDY_SHARE = 0.7        # если не ищет путь — с такой долей всё же идёт «в сторону игрока»
@@ -87,6 +87,8 @@ def choose_step(
     here = enemy.cell
 
     def walkable(cell: Cell) -> bool:
+        if enemy.kind == "phantom":   # призрак проходит сквозь разрушаемые стены, но не сквозь колонны
+            return board.inside(cell) and board.get(cell) != PILLAR and cell not in blocked
         return board.is_floor(cell) and cell not in blocked
 
     options = [c for c in board.neighbors(here) if walkable(c)]
@@ -101,6 +103,14 @@ def choose_step(
             options = safe
         else:
             return None                 # вокруг опасно — лучше переждать
+
+    if enemy.flee > 0 and enemy.last_seen is not None:
+        # подрывник поставил бомбу и удирает: шаг, который сильнее всего увеличивает расстояние
+        def distance(c: Cell) -> int:
+            return abs(c[0] - enemy.last_seen[0]) + abs(c[1] - enemy.last_seen[1])
+
+        worst = max(distance(c) for c in options)
+        return rng.choice([c for c in options if distance(c) == worst])
 
     goal = enemy.last_seen if enemy.chasing else None
     if goal is None or goal == here:

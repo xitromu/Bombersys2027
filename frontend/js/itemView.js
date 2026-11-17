@@ -239,6 +239,67 @@ const DRAW = {
     fill(g, '#ffe17a');
     shine(g, -4.5, 1, 2.4, 1.1, 0.7);
   },
+  remote(g) {                                                  // пульт подрыва: коробочка с антенной и красной кнопкой
+    line(g, 6, -12, 10, -20, 1.8, '#555862');
+    oval(g, 10, -20, 2);
+    fill(g, '#d81e1e');
+    rect(g, -11, -12, 22, 26, 3);
+    ink(g, IRON);
+    rect(g, -8, -9, 16, 8, 1.5);
+    ink(g, ['#9fe89a', '#2f7a2c'], 1);
+    oval(g, 0, 6, 5.5);
+    ink(g, RED, 1.2);
+    shine(g, -1.8, 4.2, 1.6, 1, 0.6);
+  },
+  fire(g) {                                                    // огонь +1: канистра с языком пламени
+    rect(g, -12, -8, 24, 22, 2.5);
+    ink(g, ['#d98a3a', '#7a3c10']);
+    rect(g, -5, -13, 10, 5, 1.5);
+    ink(g, IRON, 1);
+    g.beginPath();
+    g.moveTo(0, 10);
+    g.bezierCurveTo(-7, 4, -4, -3, 0, -6);
+    g.bezierCurveTo(1, -2, 5, -2, 4, -6);
+    g.bezierCurveTo(8, -1, 7, 6, 0, 10);
+    g.closePath();
+    ink(g, ['#ffe17a', '#e8402e'], 1.1);
+    shine(g, -8, -4, 2, 5, 0.3);
+  },
+  shield(g) {
+    g.beginPath();
+    g.arc(0, -2, 13, Math.PI, 0);
+    g.closePath();
+    ink(g, ['#d9dce6', '#6a6e7a']);
+    rect(g, -14, -2, 28, 3.5, 1.5);
+    ink(g, ['#e3e5ec', '#7a7d88'], 1);
+    star(g, 0, -8, 5, 0.45);
+    ink(g, RED, 1);
+    shine(g, -6, -9, 3, 1.6, 0.6);
+  },
+  boots(g) {                                                   // сапоги: скорость
+    for (const [dx, k] of [[-6, 0.9], [5, 1]]) {
+      g.save();
+      g.translate(dx, 0);
+      g.scale(k, k);
+      g.beginPath();
+      g.moveTo(-5, -14);
+      g.lineTo(4, -14);
+      g.lineTo(4, 4);
+      g.lineTo(10, 8);
+      g.lineTo(10, 12);
+      g.lineTo(-5, 12);
+      g.closePath();
+      ink(g, ['#8a5a2e', '#3d2410']);
+      rect(g, -5, 9, 15, 3.5, 1);
+      ink(g, ['#4a4d57', '#22242a'], 0.9);
+      line(g, -5, -10, 4, -10, 1, 'rgba(18, 13, 10, 0.5)');
+      g.restore();
+    }
+    line(g, -14, -6, -9, -6, 1.6, '#9fe89a');                  // след скорости
+    line(g, -15, 0, -9, 0, 1.6, '#9fe89a');
+    poly(g, [[2, -22], [-4, -12], [0, -12], [-2, -4], [6, -14], [2, -14]]);
+    ink(g, GOLD, 1);
+  },
 };
 
 export function createItemTextures(scene) {

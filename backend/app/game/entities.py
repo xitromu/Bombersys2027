@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .board import Cell
-from .config import START_BOMBS, START_LIVES
+from .config import BLAST_RADIUS, START_BOMBS, START_LIVES
 from .movement import cell_of
 
 
@@ -25,6 +25,10 @@ class Player:
     lives: int = START_LIVES
     score: int = 0
     capacity: int = START_BOMBS     # сколько бомб может стоять одновременно
+    radius: int = BLAST_RADIUS      # крест огня его бомб (бонус «огонь +1»)
+    remote: bool = False            # пульт: бомбы рвутся по клавише, а не по фитилю
+    armor: bool = False             # щит: гасит один любой удар
+    boots: bool = False             # сапоги: герой быстрее
     # alive — в игре; dying — анимация смерти; dead — ждёт конца уровня (или пока воскресит напарник);
     # exited — ушёл в дверь; out — жизни кончились (напарник может воскресить, отдав свою)
     state: str = "alive"
@@ -33,6 +37,7 @@ class Player:
     death_kind: str | None = None   # normal / super
     death_anim: str | None = None   # как именно падает: knees / thrown / flip / rocket (см. config.py)
     death_cause: str | None = None  # от чего погиб: bomb / enemy / snake / trap
+    death_half: bool = False        # съеден крупным (босс, матка): откушена половина туловища, а не голова
     remains: str | None = None      # что осталось от съеденного змеёй: skeleton / pile (см. config.py)
 
     @property
@@ -62,8 +67,16 @@ class Enemy:
     last_seen: Cell | None = None   # где последний раз видел игрока
     memory_left: float = 0.0
     wait: float = 0.0               # стоит на месте (некуда идти)
-    kind: str = "ghost"             # ghost — обычный враг, snake — змея длиной в три клетки (см. snake.py)
+    # ghost — обычный зубастик, snake — змея (snake.py), armored — броненосец, phantom — призрак,
+    # queen — матка, bomber — подрывник, boss — гигантский зубастик
+    kind: str = "ghost"
     trail: list[tuple[float, float]] = field(default_factory=list)   # змея: путь головы, свежие точки первыми
+    armor: int = 0                  # сколько взрывов переживёт (панцири броненосца и босса)
+    invuln: float = 0.0             # после треснувшего панциря огонь 잠시 не берёт
+    mother: int | None = None       # ребёнок матки: id матки (чтобы считать живых детей)
+    cooldown: float = 0.0           # матка: до следующего ребёнка; подрывник: до следующей бомбы
+    flee: float = 0.0               # подрывник удирает от игрока ещё столько секунд
+    enraged: bool = False           # ярость последнего: остался один и озверел
 
     @property
     def cell(self) -> Cell:
@@ -74,9 +87,11 @@ class Enemy:
 class Bomb:
     id: int
     cell: Cell
-    owner: int
+    owner: int                      # индекс игрока или ENEMY_BOMB_OWNER — бомба подрывника
     fuse: float                     # секунд до взрыва
     total: float
+    radius: int = BLAST_RADIUS      # крест огня этой бомбы
+    remote: bool = False            # пульт: фитиль не тикает, ждёт клавиши (цепная реакция поджигает и её)
 
 
 @dataclass
@@ -101,6 +116,6 @@ class Nest:
 class Item:
     id: int
     cell: Cell
-    kind: str   # door, chest, bomb, life, death, bag, bigbag, gems
+    kind: str   # door, chest, bomb, life, death, bag, bigbag, gems, remote, fire, shield, boots
     revealed_by: int | None = None  # бомба, открывшая бонус, — её огонь бонус не трогает
     burned: bool = False            # для двери: в неё попал огонь

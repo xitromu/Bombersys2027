@@ -255,7 +255,7 @@ export function addPanel(scene, players = 2, revive = null) {
         name: text(75, y + 147, 16, PAPER.text, bold),
         score: text(205, y + 147, 16, PAPER.text, bold),
       };
-      if (i >= players) for (const part of Object.values(parts)) part.setAlpha(0.35);
+      if (i >= players) for (const part of Object.values(parts).flat()) part.setAlpha(0.35);
       parts.dead = addCanvas(scene, PANEL_X + 21 + PHOTO[0], y + PHOTO[1], deadPhoto(scene, i + 1))
         .setDepth(top).setVisible(false);
       parts.revive = [];                 // листок «ВОСКРЕСИТЬ» и мигающая рамка: напарник может поднять этого героя

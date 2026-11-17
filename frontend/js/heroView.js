@@ -8,6 +8,7 @@
 // Что остаётся от героя, зависит от того, кто до него добрался:
 //   тварь    — съедает голову: убитый ею падает уже без головы, а у лежащего голова пропадает, когда
 //              тварь по нему пройдёт (те же кадры гибели, лист hero<N>_headless);
+//   крупная  — босс и матка откусывают половину туловища (лист hero<N>_half, собирает build_half.py);
 //   змея     — обгладывает целиком: тело тает, на его месте остаются кости (bonesView.js).
 // Лужа крови есть, только пока лежит тело: под костями её нет, а воскрес герой — пропадает вместе с телом.
 
@@ -49,6 +50,7 @@ export class HeroView {
     this.run = `hero${this.number}`;
     this.fall = `hero${this.number}_death`;
     this.eaten = `hero${this.number}_headless`;
+    this.half = `hero${this.number}_half`;
     this.pool = this.newPool();
     this.shadow = scene.add.ellipse(0, 0, 26, 10, 0x000000).setVisible(false);
     this.sprite = scene.add.sprite(0, 0, this.run).setVisible(false);
@@ -86,13 +88,16 @@ export class HeroView {
       const back = table.frames.at(-1)[0] ? 1 : 0;   // отброшен — ложится на клетку позади, иначе в своей
       this.death = { table, facing: p.facing, x: p.x, y: p.y,
         restX: Math.round(p.x) - dx * back, restY: Math.round(p.y) - dy * back,
-        flying: p.death === 'super', blood: partner, headless: false, bones: null,
+        flying: p.death === 'super', blood: partner, headless: false, half: false, bones: null,
         start: performance.now(), still: false };
       this.scene.tweens.killTweensOf(this.sprite);
       this.sprite.setTexture(this.fall).setOrigin(...HERO.death.origin).setAlpha(1).setVisible(true);
       this.bones.setVisible(false);
       this.pool.clear().setAlpha(1);
-      if (p.cause === 'enemy') this.loseHead();      // тварь убила — голову съела сразу
+      if (p.cause === 'enemy') {                        // тварь убила — голову съела сразу, крупная — полтуловища
+        if (p.half) this.loseHalf();
+        else this.loseHead();
+      }
       // remains — что останется от съеденного змеёй (skeleton или pile): упал, полежал — и обглодан дочиста
       if (p.remains) this.gnaw(p.remains, table.frames.length / HERO.death.fps + BONES_PAUSE, true);
     } else if (p.state === 'exited' && this.mode !== 'exited') {
@@ -165,7 +170,7 @@ export class HeroView {
     // Лужа — под телом, ближе к голове. Убитый змеёй обглодан дочиста, лужи не было и нет;
     // если змея добралась до уже лежащего — лужа уходит вместе с телом.
     if (death.blood && !death.bones?.clean) {
-      const head = table.head * HERO.death.pool;
+      const head = (death.half ? 0 : table.head) * HERO.death.pool;   // укус крупного — лужа у среза, не у головы
       this.drawPool(x - fitX * lie + dx * head, y - fitY * lie + dy * head, landed);
       this.pool.setAlpha(1 - melted);
     }
@@ -201,6 +206,14 @@ export class HeroView {
     this.sprite.setTexture(this.eaten).setOrigin(...HERO.death.origin);
   }
 
+  // Крупная тварь откусила половину туловища: остаётся нижняя половина с рваной кромкой укуса.
+  loseHalf() {
+    this.death.headless = true;
+    this.death.half = true;
+    this.death.still = false;
+    this.sprite.setTexture(this.half).setOrigin(...HERO.death.origin);
+  }
+
   // Змея обглодала: с секунды at (от гибели) тело тает, на его месте проступают кости kind.
   // clean — змея и убила: крови не было вовсе.
   gnaw(kind, at, clean = false) {
@@ -222,10 +235,16 @@ export class HeroView {
     const { time, lying } = this.fallen();
     if (!lying) return null;
     for (const enemy of enemies) {
+      if (enemy.in_wall) continue;                 // призрак в стене безвреден — и тело не тронет
       const snake = enemy.kind === 'snake';
-      if (!snake && death.headless) continue;
+      const big = enemy.kind === 'boss' || enemy.kind === 'queen';
+      if (!snake && (big ? death.half : death.headless)) continue;
       if (Math.hypot(enemy.x - death.restX, enemy.y - death.restY) > BITE) continue;
       if (!snake) {
+        if (big) {
+          this.loseHalf();
+          return 'half';
+        }
         this.loseHead();
         return 'head';
       }

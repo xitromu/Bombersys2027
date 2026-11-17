@@ -34,6 +34,8 @@ const ITEM_POPUP = {
   door: ['Выход!', '#66ff66'], chest: ['+1000', '#ffcc00'], bag: ['+100', '#ffcc00'],
   bigbag: ['+200', '#ffcc00'], gems: ['+500', '#ffcc00'],
   bomb: ['+1 бомба', '#66ccff'], life: ['+1 жизнь', '#66ff66'], death: ['Ловушка!', '#ff4444'],
+  remote: ['Пульт подрыва', '#66ccff'], fire: ['Огонь +1', '#ff9944'],
+  shield: ['Щит', '#66ccff'], boots: ['Сапоги', '#99ff66'],
 };
 
 export class GameScene extends Phaser.Scene {
@@ -269,7 +271,27 @@ export class GameScene extends Phaser.Scene {
           const puff = this.add.circle(cellCenterX(bx), cellCenterY(by), 14, 0xffffff).setDepth(actorDepth(by));
           this.tweens.add({ targets: puff, alpha: 0, scale: 1.6, duration: 450, onComplete: () => puff.destroy() });
         }
-        this.popup(cellCenterX(event.x), cellTop(event.y), `+${event.score}`, '#ffcc00');
+        if (event.score > 0) this.popup(cellCenterX(event.x), cellTop(event.y), `+${event.score}`, '#ffcc00');
+        break;
+      }
+      case 'armor_cracked':
+        this.popup(cellCenterX(event.x), cellTop(event.y), 'Панцирь треснул!', '#ffcc00');
+        this.cameras.main.shake(180, 0.003);
+        break;
+      case 'boss_phase':
+        this.popup(cellCenterX(event.x), cellTop(event.y),
+          event.armor > 0 ? 'Панцирь треснул! Он зовёт подмогу!' : 'Последний панцирь! Добивай!', '#ff6666', 2200);
+        this.cameras.main.shake(250, 0.005);
+        break;
+      case 'enemy_enraged':
+        this.popup(cellCenterX(event.x), cellTop(event.y), 'ЯРОСТЬ!', '#ff6666', 1800, 26);
+        break;
+      case 'door_appeared':
+        this.popup(cellCenterX(event.x), cellTop(event.y), 'Дверь открыта!', '#66ff66', 2200);
+        break;
+      case 'shield_saved': {
+        const saved = this.curr.players[event.player];
+        this.popup(cellCenterX(saved.x), cellTop(saved.y) - 10, 'Щит спас!', '#66ccff', 1800, 24);
         break;
       }
       case 'item_destroyed': {
@@ -296,8 +318,9 @@ export class GameScene extends Phaser.Scene {
         const victim = this.curr.players[event.player];
         const phrase = pick(event.kind === 'super' ? EPIC_PHRASES : CAUSE_PHRASES[event.cause] ?? DEATH_PHRASES);
         const say = () => this.popup(cellCenterX(victim.x), cellTop(victim.y) - 10, phrase, '#ffffff', 2800, 26);
-        if (event.cause === 'enemy') {              // тварь откусила голову: сначала «ХРУМ!», фраза — следом
-          this.crunch(cellCenterX(victim.x), cellCenterY(victim.y) - HEAD_UP, 'ХРУМ!', true);
+        if (event.cause === 'enemy') {              // тварь откусила голову (крупная — полтуловища): «ХРУМ!», фраза — следом
+          const biteY = cellCenterY(victim.y) - (victim.half ? 10 : HEAD_UP);
+          this.crunch(cellCenterX(victim.x), biteY, 'ХРУМ!', true);
           this.time.delayedCall(500, say);
         } else {
           say();
@@ -352,11 +375,13 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  // Враг дошёл до лежащего тела: тварь съела голову (head), змея обглодала до костей (bones).
+  // Враг дошёл до лежащего тела: тварь съела голову (head), крупная откусила полтуловища (half),
+  // змея обглодала до костей (bones).
   onBite(hero, kind) {
     if (kind === 'head') this.crunch(...hero.headSpot(), 'ХРУМ!', true);
+    else if (kind === 'half') this.crunch(...hero.restSpot(), 'ХРУМ!', true);
     else this.crunch(...hero.restSpot(), 'хрум-хрум-хрум', false);
-    this.audio.bite(kind, hero.info.x);
+    this.audio.bite(kind === 'bones' ? 'bones' : 'head', hero.info.x);
   }
 
   // Надпись вроде «ХРУМ!» в точке экрана (x, y): выскакивает и тает; splash — с брызгами.

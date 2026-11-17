@@ -2,16 +2,16 @@
 // поэтому после настройки запоминается навсегда — для этого компьютера и браузера.
 // Клавиши записаны «физически» (event.code), так что русская раскладка не мешает.
 
-export const ACTIONS = ['up', 'down', 'left', 'right', 'bomb', 'revive'];
+export const ACTIONS = ['up', 'down', 'left', 'right', 'bomb', 'detonate', 'revive'];
 export const ACTION_NAMES = {
-  up: 'Вверх', down: 'Вниз', left: 'Влево', right: 'Вправо', bomb: 'Бомба', revive: 'Воскресить',
+  up: 'Вверх', down: 'Вниз', left: 'Влево', right: 'Вправо', bomb: 'Бомба', detonate: 'Пульт', revive: 'Воскресить',
 };
 // пауза, выход, звук и громкость — заняты всегда
 export const RESERVED = ['KeyP', 'Pause', 'Escape', 'KeyM', 'Minus', 'Equal', 'NumpadSubtract', 'NumpadAdd'];
 
 export const DEFAULT_BINDINGS = [
-  { up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD', bomb: 'Space', revive: 'KeyE' },
-  { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', bomb: 'Enter', revive: 'ShiftRight' },
+  { up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD', bomb: 'Space', detonate: 'KeyQ', revive: 'KeyE' },
+  { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', bomb: 'Enter', detonate: 'ControlRight', revive: 'ShiftRight' },
 ];
 
 const STORAGE_KEY = 'bombersys.keys';
