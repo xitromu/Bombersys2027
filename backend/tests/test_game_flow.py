@@ -11,6 +11,26 @@ from app.main import app
 from .conftest import make_game, run
 
 
+def test_each_next_extra_life_costs_more_points():
+    from app.game.config import extra_life_threshold
+    assert [extra_life_threshold(n) for n in (1, 2, 3)] == [5000, 10500, 16500]
+    game = make_game(board=Board.empty())
+    ivan = game.players[0]
+    start = ivan.lives
+    game._add_score(ivan, 4999)
+    assert ivan.lives == start                                 # до первой жизни не дотянул
+    game._add_score(ivan, 1)
+    assert ivan.lives == start + 1                             # ровно 5000 — жизнь
+    game._add_score(ivan, 5499)
+    assert ivan.lives == start + 1                             # вторая дороже первой на 500
+    game._add_score(ivan, 1)
+    assert ivan.lives == start + 2                             # 10 500 — вторая жизнь
+    game._add_score(ivan, 5999)
+    assert ivan.lives == start + 2                             # третья дороже второй ещё на 500
+    game._add_score(ivan, 1)
+    assert ivan.lives == start + 3                             # 16 500 — третья жизнь
+
+
 def test_door_takes_player_to_next_level():
     game = make_game(board=Board.empty())
     game.items = {1: Item(1, (2, 0), "door")}

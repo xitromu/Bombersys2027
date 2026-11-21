@@ -43,7 +43,7 @@ from .config import (
     ENEMY_BOMB_OWNER,
     ENEMY_SCORES,
     ENEMY_TOUCH_DISTANCE,
-    EXTRA_LIFE_EVERY,
+    extra_life_threshold,
     FLAME_TIME,
     FRENZY_MEMORY,
     FRENZY_SIGHT,
@@ -460,9 +460,12 @@ class Game:
             self._add_score(player, ITEM_SCORES[kind])
 
     def _add_score(self, player: Player, points: int) -> None:
-        before = player.score // EXTRA_LIFE_EVERY
         player.score += points
-        gained = player.score // EXTRA_LIFE_EVERY - before
+        gained = 0
+        # порог каждой следующей жизни выше предыдущего: 5000, затем +5500, +6000…
+        while player.score >= extra_life_threshold(player.lives_bought + 1):
+            player.lives_bought += 1
+            gained += 1
         if gained:
             player.lives += gained
             self._emit("extra_life", player=player.index)

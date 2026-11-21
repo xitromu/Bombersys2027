@@ -24,6 +24,7 @@ class Player:
     moving: bool = False
     lives: int = START_LIVES
     score: int = 0
+    lives_bought: int = 0           # сколько дополнительных жизней уже куплено очками: порог следующей растёт
     capacity: int = START_BOMBS     # сколько бомб может стоять одновременно
     radius: int = BLAST_RADIUS      # крест огня его бомб (бонус «огонь +1»)
     remote: bool = False            # пульт: бомбы рвутся по клавише, а не по фитилю
