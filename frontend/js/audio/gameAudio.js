@@ -46,7 +46,11 @@ export class GameAudio {
     const now = state.phase;
     this.phase = now;
     if (before === now) {
-      if (now === 'playing') sound.tempo(state.enemies.length === 1 ? HURRY_TEMPO : 1);
+      if (now === 'playing') {
+        // ускорение, когда в живых опасные враги: воришка с кротом за героями не гонятся
+        const hunters = state.enemies.filter((e) => e.kind !== 'thief' && e.kind !== 'mole').length;
+        sound.tempo(hunters === 1 ? HURRY_TEMPO : 1);
+      }
       return;
     }
     if (before === 'paused' || now === 'paused') sound.pause(now === 'paused');
@@ -91,10 +95,26 @@ export class GameAudio {
           break;
         case 'boss_phase':
           sound.play('doorBreak', { pan });
-          sound.play('ghostNotice', { pan, pitch: 0.55, delay: 0.15 });
+          sound.play('ghostNotice', { pan, pitch: 0.55 - (e.rank ?? 0) * 0.07, delay: 0.15 });
           break;
         case 'enemy_enraged':
           sound.play('ghostNotice', { pan, pitch: 0.6 });
+          break;
+        case 'loot_grabbed':
+          sound.play('thiefGrab', { pan });
+          break;
+        case 'loot_dropped':
+          sound.play('coin', { pan, pitch: 0.7 });
+          break;
+        case 'loot_hidden':
+          sound.play('thiefGrab', { pan, pitch: 0.8 });
+          break;
+        case 'mole_ate':
+          sound.play('moleEat', { pan });
+          break;
+        case 'mole_burrowed':
+        case 'mole_surfaced':
+          sound.play('moleDig', { pan, minGap: 0.4 });
           break;
         case 'door_appeared':
           sound.play('doorOpen', { pan });
@@ -190,7 +210,8 @@ export class GameAudio {
       alive.add(enemy.id);
       const was = this.chasing.get(enemy.id) ?? false;
       this.chasing.set(enemy.id, enemy.chasing);
-      if (state.phase !== 'playing' || !enemy.chasing || was) continue;
+      // воришка и крот «гнались» за бонусом, а не за героем — «у-у» им ни к чему
+      if (state.phase !== 'playing' || !enemy.chasing || was || enemy.kind === 'thief' || enemy.kind === 'mole') continue;
       if (now - (this.noticedAt.get(enemy.id) ?? -Infinity) < NOTICE_REPEAT || now - this.lastNotice < NOTICE_GAP) continue;
       this.noticedAt.set(enemy.id, now);
       this.lastNotice = now;

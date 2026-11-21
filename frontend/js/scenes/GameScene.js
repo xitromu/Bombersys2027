@@ -286,6 +286,31 @@ export class GameScene extends Phaser.Scene {
       case 'enemy_enraged':
         this.popup(cellCenterX(event.x), cellTop(event.y), 'ЯРОСТЬ!', '#ff6666', 1800, 26);
         break;
+      case 'loot_grabbed':
+        this.popup(cellCenterX(event.x), cellTop(event.y), 'Воришка!', '#ffd24a');
+        break;
+      case 'loot_hidden':
+        this.popup(cellCenterX(event.x), cellTop(event.y), 'Спрятал под стеной!', '#ffd24a', 1600, 20);
+        break;
+      case 'loot_dropped':
+        this.popup(cellCenterX(event.x), cellTop(event.y), 'Выронил!', '#ffd24a', 1300, 20);
+        break;
+      case 'mole_ate':
+        this.popup(cellCenterX(event.x), cellTop(event.y), 'Крот всё сожрал!', '#c9a8ff', 1600, 20);
+        break;
+      case 'mole_burrowed':
+      case 'mole_surfaced': {
+        const x = cellCenterX(event.x), y = cellCenterY(event.y);
+        for (let i = 0; i < 5; i++) {              // комья земли
+          const a = i * 1.3 + x;
+          const clod = this.add.circle(x, y + 8, 2.2, 0x5d4a33).setDepth(actorDepth(event.y));
+          this.tweens.add({
+            targets: clod, x: x + Math.cos(a) * 16, y: y + 8 - Math.abs(Math.sin(a)) * 18, alpha: 0,
+            ease: 'Quad.easeOut', duration: 600, onComplete: () => clod.destroy(),
+          });
+        }
+        break;
+      }
       case 'door_appeared':
         this.popup(cellCenterX(event.x), cellTop(event.y), 'Дверь открыта!', '#66ff66', 2200);
         break;

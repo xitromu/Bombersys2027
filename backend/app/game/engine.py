@@ -32,11 +32,9 @@ from .config import (
     BOMBER_PERIOD,
     BOMBER_RADIUS,
     BOOTS_FACTOR,
-    BOSS_ARMOR,
     BOSS_HITBOX,
-    BOSS_MINIONS,
+    BOSS_RANKS,
     BOSS_SCORE,
-    BOSS_SPEEDUP,
     BOSS_TOUCH_DISTANCE,
     BURNED_LIFE_ENEMIES,
     BURNED_LIFE_PAUSE,
@@ -59,6 +57,10 @@ from .config import (
     MAX_BOMBS,
     MAX_RADIUS,
     MECHANIC_ITEMS,
+    MOLE_BURROW_TIME,
+    MOLE_EAT_SCORE,
+    MOLE_PERIOD,
+    MOLE_SPEED_FACTOR,
     NAMES,
     NORMAL_DEATH,
     PICKUP_DISTANCE,
@@ -66,6 +68,7 @@ from .config import (
     QUEEN_MAX_CHILDREN,
     QUEEN_PERIOD,
     READY_TIME,
+    REMOTE_DEATH_FUSE,
     REVIVE_COST,
     REVIVE_SHIELD,
     SNAKE_LENGTH,
@@ -76,6 +79,11 @@ from .config import (
     START_FACING,
     SUPER_DEATH_IN_PLACE,
     SUPER_DEATHS,
+    THIEF_FLEE,
+    THIEF_MAX_CARRY,
+    THIEF_PANIC_RADIUS,
+    THIEF_SPEED_FACTOR,
+    boss_rank,
 )
 from .difficulty import enemy_stats, for_level
 from .entities import Bomb, Enemy, Flame, Item, Nest, Player
@@ -128,7 +136,7 @@ class Game:
         keep_free: set[Cell] = set()
         for sx, sy in SPAWNS:  # угол и две соседние клетки — чтобы было куда отойти от первой бомбы
             keep_free |= {(sx, sy), (sx + (1 if sx == 0 else -1), sy), (sx, sy + (1 if sy == 0 else -1))}
-        self.board = Board.generate(self.rng, self.settings.walls, keep_free)
+        self.board = Board.with_layout(self.rng, self.settings.walls, keep_free, self.settings.layout)
         self.hidden = self._hide_items()
         self.items: dict[int, Item] = {}
         self.bombs: dict[int, Bomb] = {}
@@ -183,7 +191,8 @@ class Game:
                 break
         cells = self.rng.sample(candidates, min(len(candidates), total))
         spare = [c for c in candidates if c not in cells]
-        specials = ["armored"] * s.armored + ["phantom"] * s.phantoms + ["queen"] * s.queens + ["bomber"] * s.bombers
+        specials = (["armored"] * s.armored + ["phantom"] * s.phantoms + ["queen"] * s.queens
+                    + ["bomber"] * s.bombers + ["thief"] * s.thieves + ["mole"] * s.moles)
         regulars = max(0, s.enemies - len(specials) - s.snakes)
         kinds = (["boss"] if s.boss else []) + ["ghost"] * regulars + specials + ["snake"] * s.snakes
         enemies = {}
@@ -244,11 +253,21 @@ class Game:
         elif kind == "armored":
             enemy.speed = round(stats.speed * 0.8, 2)
             enemy.armor = 1
+        elif kind == "thief":
+            enemy.speed = round(stats.speed * THIEF_SPEED_FACTOR, 2)
+            enemy.sight, enemy.smart = 0.0, 0.75     # героя не замечает вообще, к бонусам идёт путём (BFS)
+            enemy.memory, enemy.avoid_danger = 0.0, 0.85
+        elif kind == "mole":
+            enemy.speed = round(stats.speed * MOLE_SPEED_FACTOR, 2)
+            enemy.sight, enemy.smart = 0.0, 0.75
+            enemy.memory, enemy.avoid_danger = 0.0, 0.6
+            enemy.cooldown = MOLE_PERIOD / 2         # первый нырок — раньше, чтобы успел показать себя
         elif kind == "boss":
-            enemy.speed = round(stats.speed * 0.7, 2)
+            rank = BOSS_RANKS[boss_rank(self.level)]
+            enemy.speed = round(stats.speed * rank["speed"], 2)
             enemy.sight, enemy.smart, enemy.memory = 9.0, 0.8, 5.0
             enemy.avoid_danger = 0.5
-            enemy.armor = BOSS_ARMOR
+            enemy.armor = rank["armor"]
         return enemy
 
     def _set_phase(self, phase: str) -> None:
@@ -329,8 +348,11 @@ class Game:
             self._set_phase("playing")
         elif self.phase == "playing":
             self._step(dt)
-        elif self.phase == "level_done" and self.phase_time >= LEVEL_END_TIME:
-            self._finish_level()
+        elif self.phase == "level_done":
+            # уровень кончился, но «пультовые» бомбы погибших догорают: взрыв через 2 с после смерти хозяина
+            self._tick_bombs(dt)
+            if self.phase_time >= LEVEL_END_TIME:
+                self._finish_level()
 
     def _step(self, dt: float) -> None:
         for player in self.players:
@@ -384,6 +406,8 @@ class Game:
             for item in list(self.items.values()):
                 if not player.active:
                     break
+                if item.carried is not None:
+                    continue            # воришка утащил: на поле его нет
                 if math.hypot(player.x - item.cell[0], player.y - item.cell[1]) < PICKUP_DISTANCE:
                     if self._door_locked(item):
                         at_locked = True
@@ -461,6 +485,11 @@ class Game:
         player.lives = max(0, player.lives - 1)
         player.capacity = START_BOMBS
         player.radius, player.remote, player.armor, player.boots = BLAST_RADIUS, False, False, False
+        # «пультовые» бомбы погибшего клавишу уже не дождутся: рвутся через пару секунд после его смерти
+        for bomb in self.bombs.values():
+            if bomb.owner == player.index and bomb.remote:
+                bomb.remote = False
+                bomb.fuse = REMOTE_DEATH_FUSE
         player.death_kind = "super" if epic else "normal"
         player.death_anim = self._fall(player) if epic else NORMAL_DEATH
         # что останется от съеденного змеёй, тоже решает сервер: оба игрока должны увидеть одно и то же
@@ -496,17 +525,23 @@ class Game:
             was_wall = self.board.get(cell) == WALL
             self.flames.append(Flame(cell, kind, FLAME_TIME, bomb.owner, bomb.id, wall=was_wall))
             if was_wall:
-                self.board.set(cell, EMPTY)
-                self._emit("wall_destroyed", x=cell[0], y=cell[1])
-                hidden = self.hidden.pop(cell, None)
-                if hidden:
-                    item = Item(next(self._ids), cell, hidden, revealed_by=bomb.id)
-                    self.items[item.id] = item
+                self._break_wall(cell, bomb=bomb.id)
             caught.extend(b for b in self.bombs.values() if b.cell == cell)
         # Цепная реакция идёт волной: задетые бомбы рвутся по очереди — от поставленной раньше к поздним.
         for rank, other in enumerate(sorted(caught, key=lambda b: b.id), start=1):
             other.remote = False    # подожжённая «пультовая» бомба больше не ждёт клавиши
             other.fuse = min(other.fuse, CHAIN_DELAY * rank)
+
+    def _break_wall(self, cell: Cell, bomb: int | None = None) -> None:
+        """Стена исчезает — от взрыва или от крота: под ней может оказаться бонус."""
+        if self.board.get(cell) != WALL:
+            return
+        self.board.set(cell, EMPTY)
+        self._emit("wall_destroyed", x=cell[0], y=cell[1])
+        hidden = self.hidden.pop(cell, None)
+        if hidden:
+            item = Item(next(self._ids), cell, hidden, revealed_by=bomb)
+            self.items[item.id] = item
 
     def _tick_flames(self, dt: float) -> None:
         for flame in self.flames:
@@ -517,6 +552,8 @@ class Game:
     def _burn_items(self) -> None:
         """Огонь уничтожает открытые бонусы. Дверь не сгорает, но запирается до гибели всех врагов."""
         for item in list(self.items.values()):
+            if item.carried is not None:
+                continue                # в лапах у воришки огонь бонус не возьмёт
             if not any(f.cell == item.cell and f.bomb != item.revealed_by for f in self.flames):
                 continue
             x, y = item.cell
@@ -572,12 +609,90 @@ class Game:
                 self._queen_spawn(enemy, dt)
             elif enemy.kind == "bomber":
                 self._bomber_bomb(enemy, dt)
-            ai.perceive(enemy, self.players, dt)
+            elif enemy.kind == "thief":
+                self._thief_act(enemy, dt)
+            elif enemy.kind == "mole":
+                self._mole_act(enemy, dt)
+            if enemy.burrowed > 0:
+                continue                    # крот под землёй: стоит на месте, огонь и герой его не трогают
+            if enemy.kind in ("thief", "mole") and enemy.flee <= 0:
+                # охотятся не за героем, а за бонусами и стенами: цель задаёт движок, ai идёт к ней как обычно
+                goal = ai.goal_for(enemy, self.board, self.items, self.players, self.rng)
+                enemy.chasing = goal is not None
+                enemy.last_seen = goal
+            if enemy.kind not in ("thief", "mole"):
+                ai.perceive(enemy, self.players, dt)   # воришка и крот за героем не гонятся: perceive им ни к чему
             if enemy.kind == "phantom":   # в стене его огонь не берёт — и огонь на месте стены не преграда
                 self._move_enemy(enemy, dt, bomb_cells, set())
             else:
                 self._move_enemy(enemy, dt, blocked, danger)
         self._check_frenzy()
+
+    def _thief_act(self, thief: Enemy, dt: float) -> None:
+        """Воришка: подбирает открытый бонус и тащит его под целую стену. Труслив: игрок близко —
+        бросает добычу и удирает (панику добирает ai.choose_step по flee). Героя никогда не трогает."""
+        if thief.loot is not None:
+            item = self.items.get(thief.loot)
+            if item is None:                # бонус сгорел прямо в лапах
+                thief.loot = None
+            else:
+                item.cell = thief.cell      # несёт с собой: где бросит — там бонус и останется
+                # прячет только под пустой стеной: чужой клад (и дверь!) зарывать не станет
+                hide_at = next((c for c in self.board.neighbors(thief.cell)
+                                if self.board.get(c) == WALL and c not in self.hidden), None)
+                if hide_at is not None:
+                    del self.items[item.id]
+                    thief.loot = None
+                    self.hidden[hide_at] = item.kind       # заныкал под стену: достать можно только взрывом
+                    self._emit("loot_hidden", id=thief.id, kind=item.kind, x=hide_at[0], y=hide_at[1])
+                    return
+        near = [p for p in self.players
+                if p.active and math.hypot(p.x - thief.x, p.y - thief.y) < THIEF_PANIC_RADIUS]
+        if near:
+            if thief.loot is not None:
+                item = self.items.get(thief.loot)
+                thief.loot = None
+                if item is not None:
+                    item.carried = None
+                    self._emit("loot_dropped", id=thief.id, kind=item.kind,
+                               x=item.cell[0], y=item.cell[1])
+            threat = min(near, key=lambda p: math.hypot(p.x - thief.x, p.y - thief.y))
+            thief.last_seen, thief.memory_left, thief.flee = threat.cell, THIEF_FLEE, THIEF_FLEE
+            return
+        if thief.loot is None:
+            for item in self.items.values():
+                if item.carried is None and item.kind != "door" and item.cell == thief.cell:
+                    item.carried = thief.id
+                    thief.loot = item.id
+                    self._emit("loot_grabbed", id=thief.id, kind=item.kind,
+                               x=item.cell[0], y=item.cell[1])
+                    break
+
+    def _mole_act(self, mole: Enemy, dt: float) -> None:
+        """Крот: ныряет под землю, роет соседние разрушаемые стены (вскрывая бонусы) и жрёт открытые."""
+        if mole.burrowed > 0:
+            mole.burrowed -= dt
+            burning = {f.cell for f in self.flames}
+            walls = [c for c in self.board.neighbors(mole.cell)
+                     if self.board.get(c) == WALL and c not in burning]
+            if walls:
+                self._break_wall(self.rng.choice(walls))            # прорывает ход
+            reach = {mole.cell, *self.board.neighbors(mole.cell)}   # дотянется до соседней клетки
+            for item in list(self.items.values()):
+                if item.carried is None and item.kind != "door" and item.cell in reach:
+                    del self.items[item.id]                          # жрёт бонус с земли
+                    self._emit("mole_ate", id=mole.id, kind=item.kind, x=item.cell[0], y=item.cell[1])
+                    break
+            if mole.burrowed <= 0:
+                mole.target = None                                   # вынырнул — решит путь заново
+                self._emit("mole_surfaced", id=mole.id, x=round(mole.x, 3), y=round(mole.y, 3))
+            return
+        mole.cooldown -= dt
+        if mole.cooldown <= 0:
+            mole.burrowed = MOLE_BURROW_TIME
+            mole.cooldown = MOLE_PERIOD
+            mole.target = None
+            self._emit("mole_burrowed", id=mole.id, x=round(mole.x, 3), y=round(mole.y, 3))
 
     def _queen_spawn(self, queen: Enemy, dt: float) -> None:
         """Матка выпускает зелёного зубастика, пока её детей меньше QUEEN_MAX_CHILDREN."""
@@ -617,8 +732,9 @@ class Game:
         if self.nests or len(self.enemies) != 1:
             return
         enemy = next(iter(self.enemies.values()))
-        # змея и так длинная, матка неподвижна, босс и без того силён — ярость только для одиночек-бегунов
-        if enemy.enraged or enemy.kind in ("queen", "boss", "snake"):
+        # змея и так длинная, матка неподвижна, босс и без того силён, воришка с кротом за героя не гонятся —
+        # ярость только для одиночек-бегунов
+        if enemy.enraged or enemy.kind in ("queen", "boss", "snake", "thief", "mole"):
             return
         enemy.enraged = True
         enemy.speed = min(round(enemy.speed * FRENZY_SPEED_FACTOR, 2), FRENZY_SPEED_CAP)
@@ -688,8 +804,8 @@ class Game:
                     self._kill(player, epic=player.cell in close, cause="bomb",
                                killer=killer if killer >= 0 else None)
             for enemy in list(self.enemies.values()):
-                if enemy.invuln > 0:
-                    continue
+                if enemy.invuln > 0 or enemy.burrowed > 0:
+                    continue                # крот под землёй огня не боится
                 hit = self._enemy_cells(enemy) & fire.keys()
                 if not hit:
                     continue
@@ -697,20 +813,29 @@ class Game:
                 if enemy.armor > 0:     # панцирь трескается, но враг жив — и злее
                     enemy.armor -= 1
                     enemy.invuln = ARMOR_INVULN
-                    speedup = BOSS_SPEEDUP if enemy.kind == "boss" else ARMORED_SPEEDUP
-                    enemy.speed = min(round(enemy.speed * speedup, 2), round(PLAYER_SPEED * 0.95, 2))
                     if enemy.kind == "boss":
+                        rank = BOSS_RANKS[boss_rank(self.level)]
+                        enemy.speed = min(round(enemy.speed * rank["speedup"], 2), round(PLAYER_SPEED * 0.95, 2))
                         self._boss_minions(enemy)
-                        self._emit("boss_phase", id=enemy.id, armor=enemy.armor,
+                        self._emit("boss_phase", id=enemy.id, armor=enemy.armor, rank=boss_rank(self.level),
                                    x=round(enemy.x, 3), y=round(enemy.y, 3))
                     else:
+                        enemy.speed = min(round(enemy.speed * ARMORED_SPEEDUP, 2), round(PLAYER_SPEED * 0.95, 2))
                         self._emit("armor_cracked", id=enemy.id, armor=enemy.armor,
                                    x=round(enemy.x, 3), y=round(enemy.y, 3))
                     continue
                 is_snake = enemy.kind == "snake"
                 factor = SNAKE_SCORE_FACTOR if is_snake else KIND_SCORE_FACTOR.get(enemy.kind, 1)
-                points = BOSS_SCORE if enemy.kind == "boss" else ENEMY_SCORES[enemy.tier] * factor
+                points = (BOSS_SCORE * (boss_rank(self.level) + 1) if enemy.kind == "boss"
+                          else ENEMY_SCORES[enemy.tier] * factor)
                 del self.enemies[enemy.id]
+                if enemy.loot is not None:
+                    # воришка погиб с добычей: бонус падает на то место, до которого он успел донести
+                    dropped = self.items.get(enemy.loot)
+                    if dropped is not None:
+                        dropped.carried = None
+                        self._emit("loot_dropped", id=enemy.id, kind=dropped.kind,
+                                   x=dropped.cell[0], y=dropped.cell[1])
                 if owner >= 0:
                     self._add_score(self.players[owner], points)
                 self._emit("enemy_killed", id=enemy.id, x=round(enemy.x, 3), y=round(enemy.y, 3),
@@ -725,6 +850,8 @@ class Game:
                                x=doors[0].cell[0] if doors else None, y=doors[0].cell[1] if doors else None)
         for player in self.players:
             for enemy in self.enemies.values():
+                if enemy.kind == "thief" or enemy.burrowed > 0:
+                    continue                # воришка труслив и безобиден, крот под землёй — тем более
                 touch = BOSS_TOUCH_DISTANCE if enemy.kind == "boss" else ENEMY_TOUCH_DISTANCE
                 if player.active and any(
                     math.hypot(player.x - x, player.y - y) < touch for x, y in self._enemy_points(enemy)
@@ -733,10 +860,18 @@ class Game:
                                half=enemy.kind in BIG_EATERS)
 
     def _boss_minions(self, boss: Enemy) -> None:
-        """Босс, потеряв панцирь, выпускает зубастика — по одному в каждую свободную сторону."""
+        """Босс, потеряв панцирь, зовёт подмогу — кого именно, зависит от ранга босса."""
+        rank = BOSS_RANKS[boss_rank(self.level)]
         ways = [c for c in self.board.neighbors(boss.cell) if self.board.is_floor(c)] or [boss.cell]
-        for number in range(BOSS_MINIONS):
-            minion = self._new_enemy(ways[number % len(ways)])
+        for number in range(rank["minions"]):
+            cell = ways[number % len(ways)]
+            if rank["minion"] == "snake":
+                minion = self._new_enemy(cell, kind="snake")
+                spare = [c for c in self.board.cells_of(EMPTY)
+                         if all(_manhattan(c, s) >= SNAKE_TAIL_DISTANCE for s in SPAWNS)]
+                self._lay_snake(minion, spare)
+            else:
+                minion = self._new_enemy(cell)
             minion.invuln = ARMOR_INVULN    # выходят из-под треснувшего панциря: огонь того же взрыва их не берёт
             self.enemies[minion.id] = minion
             self._emit("enemy_released", id=minion.id, x=minion.cell[0], y=minion.cell[1], tier=minion.tier)
@@ -761,13 +896,13 @@ class Game:
 
     def _enemy_points(self, enemy: Enemy) -> list[tuple[float, float]]:
         """Точки, касание которых губит героя: у змеи — вдоль всего тела, у призрака в стене — нет."""
-        if self._in_wall(enemy):
+        if self._in_wall(enemy) or enemy.burrowed > 0:
             return []
         return snake.body(enemy, 0.25) if enemy.kind == "snake" else [(enemy.x, enemy.y)]
 
     def _enemy_cells(self, enemy: Enemy) -> set[Cell]:
         """Клетки, которые задевает враг. Змею огонь достаёт в любой части тела, призрака в стене — нигде."""
-        if self._in_wall(enemy):
+        if self._in_wall(enemy) or enemy.burrowed > 0:
             return set()
         if enemy.kind != "snake":
             return touched_cells(enemy.x, enemy.y, BOSS_HITBOX if enemy.kind == "boss" else HITBOX)
@@ -857,7 +992,9 @@ class Game:
             "enemies": [
                 {"id": e.id, "x": r(e.x), "y": r(e.y), "tier": e.tier, "chasing": e.chasing, "look": self._look(e),
                  "kind": e.kind, "path": self._path_for_browser(e) if e.kind == "snake" else [],
-                 "armor": e.armor, "enraged": e.enraged, "in_wall": self._in_wall(e)}
+                 "armor": e.armor, "enraged": e.enraged, "in_wall": self._in_wall(e),
+                 "burrowed": e.burrowed > 0, "loot": e.loot is not None,
+                 "rank": boss_rank(self.level) if e.kind == "boss" else 0}
                 for e in self.enemies.values()
             ],
             "bombs": [
@@ -868,7 +1005,7 @@ class Game:
             "flames": [{"x": f.cell[0], "y": f.cell[1], "kind": f.kind} for f in self.flames],
             "items": [
                 {"id": i.id, "x": i.cell[0], "y": i.cell[1], "kind": i.kind, "locked": self._door_locked(i)}
-                for i in self.items.values()
+                for i in self.items.values() if i.carried is None
             ],
             "events": events,
         }

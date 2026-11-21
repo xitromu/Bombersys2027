@@ -16,7 +16,8 @@ import random
 from collections import deque
 from collections.abc import Callable, Iterable
 
-from .board import PILLAR, Board, Cell
+from .board import PILLAR, WALL, Board, Cell
+from .config import MOLE_PERIOD, THIEF_SIGHT
 from .entities import Enemy, Player
 
 GREEDY_SHARE = 0.7        # если не ищет путь — с такой долей всё же идёт «в сторону игрока»
@@ -74,6 +75,46 @@ def _wander(enemy: Enemy, here: Cell, options: list[Cell], rng: random.Random) -
         return straight
     forward = [c for c in options if c != enemy.came_from]
     return rng.choice(forward or options)
+
+
+def _flee_step(options: list[Cell], threat: Cell, rng: random.Random) -> Cell:
+    """Шаг, который сильнее всего увеличивает расстояние от угрозы (воришка удирает от игрока)."""
+    def distance(c: Cell) -> int:
+        return abs(c[0] - threat[0]) + abs(c[1] - threat[1])
+
+    worst = max(distance(c) for c in options)
+    return rng.choice([c for c in options if distance(c) == worst])
+
+
+def goal_for(enemy: Enemy, board: Board, items: dict, players: Iterable[Player], rng: random.Random) -> Cell | None:
+    """Клетка-цель особых врагов; None — ничего не надо, броди как обычный.
+
+    Воришка: открытый бонус в радиусе THIEF_SIGHT (сначала ближайший; если бонус в лапах —
+    ближайшая целая стена, чтобы спрятать под неё). Крот: голодный — ближайший бонус, сыт —
+    ближайшая разрушаемая стена. Героя не преследуют никогда — это прописано в engine."""
+    def nearest(cells: list[Cell]) -> Cell | None:
+        cells = [c for c in cells if board.inside(c)]
+        if not cells:
+            return None
+        here = enemy.cell
+        return min(cells, key=lambda c: abs(c[0] - here[0]) + abs(c[1] - here[1]) + rng.random() * 0.001)
+
+    if enemy.kind == "thief":
+        if enemy.loot is not None:
+            walls = board.cells_of(WALL)
+            # сначала стена рядом: чем ближе, тем быстрее спрячет
+            return nearest(walls)
+        cells = [i.cell for i in items.values()]
+        here = enemy.cell
+        close = [c for c in cells if abs(c[0] - here[0]) + abs(c[1] - here[1]) <= THIEF_SIGHT]
+        return nearest(close)
+    if enemy.kind == "mole":
+        cells = [i.cell for i in items.values()]
+        hungry = enemy.cooldown < MOLE_PERIOD * 0.6
+        if cells and (hungry or not board.cells_of(WALL)):
+            return nearest(cells)
+        return nearest(board.cells_of(WALL))
+    return None
 
 
 def choose_step(

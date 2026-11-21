@@ -51,8 +51,13 @@ def test_smart_enemy_catches_standing_player():
     game = make_game(level=12, board=Board.empty())
     game.players[0].x, game.players[0].y = 0.0, 0.0
     game.enemies = {1: Enemy(1, 8.0, 6.0, tier=3, speed=2.5, sight=9, smart=0.85, memory=4)}
-    run(game, 15.0)
-    assert game.players[0].state != "alive"
+    caught = False
+    for _ in range(450):                    # 15 секунд погони
+        game.update(1 / 30)
+        if game.players[0].state != "alive":
+            caught = True                   # поймал
+            break
+    assert caught
 
 
 def test_level_one_enemy_does_not_notice_far_player():

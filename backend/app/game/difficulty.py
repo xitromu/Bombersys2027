@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 
-from .config import BOSS_EVERY, BOSS_WALLS, PLAYER_SPEED
+from .config import BOSS_EVERY, BOSS_WALLS, LAYOUT_FROM_LEVEL, LAYOUTS, PLAYER_SPEED
 
 # Насколько «сильный» враг лучше обычного врага своего уровня — за каждую ступень вида.
 TIER_BONUS = {"speed": 0.2, "sight": 1.5, "smart": 0.15, "memory": 1.0, "avoid_danger": 0.15}
@@ -34,6 +34,9 @@ class LevelSettings:
     phantoms: int = 0     # призраки: проходят сквозь разрушаемые стены
     queens: int = 0       # матки: выпускают зелёных зубастика
     bombers: int = 0      # подрывники: ставят свои бомбы
+    thieves: int = 0      # воришки: тащат открытые бонусы под стены, от игрока убегают
+    moles: int = 0        # кроты: ныряют, роют стены и жрут бонусы
+    layout: str = "random"   # планировка поля (см. board.py); боссам не нужна — у них арена
 
 
 def _clamp(value: float, low: float, high: float) -> float:
@@ -43,12 +46,10 @@ def _clamp(value: float, low: float, high: float) -> float:
 def for_level(level: int, players: int = 1) -> LevelSettings:
     n = level - 1  # сколько уровней уже пройдено
     boss = level % BOSS_EVERY == 0
-    enemies = min(2 + int(0.6 * n + 0.5), 10)
-    if players == 2:
-        enemies += 1  # вдвоём чуть веселее
     snakes = 0 if level < 4 else 1 if level < 9 else 2
-    armored = phantoms = queens = bombers = 0
+    armored = phantoms = queens = bombers = thieves = moles = 0
     walls = min(40 + 2 * n, 70)
+    layout = "random" if boss or level < LAYOUT_FROM_LEVEL else LAYOUTS[level % len(LAYOUTS)]
     if boss:
         # арена: босс и горстка зубастика, стен меньше, особых врагов нет
         enemies = 2 + (1 if players == 2 else 0)
@@ -59,6 +60,11 @@ def for_level(level: int, players: int = 1) -> LevelSettings:
         phantoms = 0 if level < 7 else 1 if level < 14 else 2
         queens = 1 if level >= 8 else 0
         bombers = 0 if level < 9 else 1 if level < 13 else 2
+        thieves = 0 if level < 7 else 1 if level < 16 else 2
+        moles = 1 if level >= 10 else 0
+        # особых врагов может оказаться больше, чем даёт формула: тогда врагов столько, чтобы все влезли
+        extras = snakes + armored + phantoms + queens + bombers + thieves + moles
+        enemies = max(min(2 + int(0.6 * n + 0.5), 10), extras) + (1 if players == 2 else 0)
     return LevelSettings(
         level=level,
         walls=walls,
@@ -77,6 +83,9 @@ def for_level(level: int, players: int = 1) -> LevelSettings:
         phantoms=phantoms,
         queens=queens,
         bombers=bombers,
+        thieves=thieves,
+        moles=moles,
+        layout=layout,
     )
 
 

@@ -28,6 +28,15 @@ const poly = (g, points) => {
   points.forEach(([x, y]) => g.lineTo(x, y));
   g.closePath();
 };
+const line = (g, x0, y0, x1, y1, width = 1, color = INK) => {
+  g.beginPath();
+  g.moveTo(x0, y0);
+  g.lineTo(x1, y1);
+  g.lineWidth = width;
+  g.lineCap = 'round';
+  g.strokeStyle = color;
+  g.stroke();
+};
 const fill = (g, color) => {
   g.fillStyle = color;
   g.fill();
@@ -180,6 +189,66 @@ function drawPhantom(g, clock) {
   fill(g, '#1a2a38');
 }
 
+// Крот — приземистое земляное тельце с лопатой-носом и лапами-рыхлителями. Под землёй рисуется
+// глубже и полупрозрачным, поверх — нора-горка: героя не трогает, огонь не берёт, но видно, где он.
+function drawMole(g, { clock = 0, walked = 0, look = [1, 0], burrowed = false }) {
+  const TONES = ['#d8c8ea', '#7a5aa8', '#3a2454'];   // фиолетово-серый, цвет земли в сумерках
+  const step = Math.sin(walked / STRIDE);
+  const dir = look[0] < -0.01 ? -1 : 1;              // мордой по ходу
+  g.save();
+  if (burrowed) {
+    g.globalAlpha = 0.4;
+    g.translate(0, 8);
+  }
+  oval(g, 0, 20, 14, 4);                             // тень
+  fill(g, 'rgba(0, 0, 0, 0.32)');
+  for (const side of [-1, 1]) {                      // лапы-лопаты шагают по очереди
+    oval(g, side * 8 + dir * 2, 16 - Math.max(0, side * step) * 2.6, 6.4, 4.6, side * 0.45);
+    fill(g, TONES[2]);
+    stroke(g, 1.2);
+  }
+  g.translate(0, 1 - Math.abs(step) * 1.1);
+  g.scale(dir, 1);
+  oval(g, -1, 1, 15.5, 11.5);                        // тельце
+  volume(g, TONES);
+  stroke(g, 1.6);
+  oval(g, -6, -4.5, 4.4, 2.4, -0.4);                 // блик
+  fill(g, 'rgba(255, 255, 255, 0.45)');
+  g.beginPath();                                     // нос-лопата
+  g.moveTo(11, -2);
+  g.quadraticCurveTo(20, -4.5, 20.5, 0.5);
+  g.quadraticCurveTo(20, 5.5, 11, 4);
+  g.closePath();
+  pair(g, ['#e8a8b8', '#a85a6e'], 1.2);
+  oval(g, 20.3, 0.5, 1.6);                           // ноздря
+  fill(g, '#5e2430');
+  for (const side of [-1, 1]) {                      // глаза-бусины и брови
+    oval(g, 5.5, -6.5 + side * 0.4, 2.1);
+    fill(g, '#fffdf4');
+    stroke(g, 0.8);
+    oval(g, 5.9, -6.4 + side * 0.4, 1.1);
+    fill(g, INK);
+    g.beginPath();
+    g.moveTo(3.2, -9.4);
+    g.lineTo(8, -8.8);
+    stroke(g, 1.4);
+  }
+  poly(g, [[13.5, 3], [16.5, 3], [15, 7.2]]);        // резцы
+  fill(g, '#fffdf4');
+  stroke(g, 0.7);
+  g.restore();
+  if (burrowed) {                                    // нора поверх: земляная горка с комьями
+    oval(g, 0, 16, 16, 5.5);
+    fill(g, '#4a3826');
+    stroke(g, 1.2);
+    for (const [x, r] of [[-9, 2.2], [-2, 2.8], [6, 2.2]]) {
+      oval(g, x, 13.5, r);
+      fill(g, '#5d4a33');
+      stroke(g, 0.9);
+    }
+  }
+}
+
 function metal(g, tones = IRON, width = 1.2) {
   const paint = g.createLinearGradient(-9, -15, 9, 15);
   paint.addColorStop(0, tones[0]);
@@ -191,11 +260,19 @@ function metal(g, tones = IRON, width = 1.2) {
 // ------------------------------------------------------------ тварь в игре
 
 const KIND_TONES = {
-  boss: ['#ff9a8a', '#a31414', '#4a0808'],
   queen: ['#ffd9f0', '#d95fa8', '#6e1a4a'],     // матка — розовая, крупнее
   bomber: ['#e0ddd2', '#8a877c', '#33312a'],    // подрывник — серый, с бомбой за спиной
+  thief: ['#e8e0b0', '#a89a58', '#5a4c22'],     // воришка — мешковатый бежево-зелёный
 };
-const KIND_SCALE = { boss: 1.5, queen: 1.15 };
+// Боссы разных уровней — разные: багровый (5-й), железный (10-й), змеиный (15-й), древний (20-й)
+const BOSS_TONES = [
+  ['#ff9a8a', '#a31414', '#4a0808'],
+  ['#e3e5ec', '#7a7d88', '#33353d'],
+  ['#b6f59a', '#3fae45', '#134f24'],
+  ['#dcc0ff', '#8a4fe0', '#3a1474'],
+];
+const BOSS_SCALE = [1.5, 1.5, 1.55, 1.62];
+const KIND_SCALE = { queen: 1.15 };
 
 let serial = 0;
 
@@ -205,10 +282,13 @@ export class EnemyView {
     this.scene = scene;
     this.kind = enemy.kind ?? 'ghost';
     this.tier = this.kind === 'boss' ? 3 : enemy.tier;
-    this.scale = KIND_SCALE[this.kind] ?? 1;
+    this.rank = enemy.rank ?? 0;       // у босса: какой он по счёту (вид и сила)
+    this.scale = this.kind === 'boss' ? BOSS_SCALE[this.rank] : (KIND_SCALE[this.kind] ?? 1);
     this.armor = enemy.armor ?? 0;
     this.enraged = false;
     this.inWall = false;
+    this.burrowed = false;             // крот под землёй
+    this.loot = false;                 // воришка несёт бонус
     this.key = `enemy_canvas_${serial++}`;
     this.texture = scene.textures.createCanvas(this.key, SIZE * DETAIL, SIZE * DETAIL);
     this.image = scene.add.image(0, 0, this.key).setScale(this.scale / DETAIL);
@@ -237,7 +317,11 @@ export class EnemyView {
     this.armor = enemy.armor ?? 0;
     this.enraged = Boolean(enemy.enraged);
     this.inWall = Boolean(enemy.in_wall);
+    this.burrowed = Boolean(enemy.burrowed);
+    this.loot = Boolean(enemy.loot);
+    this.rank = enemy.rank ?? this.rank;
     if (this.kind === 'phantom') this.image.setAlpha(this.inWall ? 0.45 : 0.85);
+    if (this.kind === 'mole') this.image.setAlpha(this.burrowed ? 0.55 : 1);
     if (this.enraged) this.image.setTint(0xff9090);
     else this.image.clearTint();
   }
@@ -261,15 +345,17 @@ export class EnemyView {
     g.clearRect(0, 0, SIZE * DETAIL, SIZE * DETAIL);
     g.setTransform(DETAIL, 0, 0, DETAIL, SIZE / 2 * DETAIL, SIZE / 2 * DETAIL);
     if (this.kind === 'phantom') drawPhantom(g, clock + this.beat);
+    else if (this.kind === 'mole') drawMole(g, { clock: clock + this.beat, walked, look: this.eyes, burrowed: this.burrowed });
     else {
+      const tones = this.kind === 'boss' ? BOSS_TONES[this.rank] : (KIND_TONES[this.kind] ?? null);
       drawChomper(g, this.tier, { clock: clock + this.beat, walked, look: this.eyes,
-        alert: this.kind === 'boss' ? 1 : this.alert, tones: KIND_TONES[this.kind] ?? null });
-      this.paintKind(g);
+        alert: this.kind === 'boss' ? 1 : this.alert, tones });
+      this.paintKind(g, tones);
     }
     this.texture.refresh();
   }
 
-  paintKind(g) {
+  paintKind(g, tones = null) {
     if (this.kind === 'armored' && this.armor > 0) {
       g.beginPath();
       g.arc(0, -12, 11, Math.PI, 0);
@@ -294,11 +380,43 @@ export class EnemyView {
         oval(g, x, 11, 1.2);
         fill(g, '#22242a');
       }
-      for (let i = this.armor; i < 2; i++) {
-        const x = i ? 4 : -4;
+      for (let i = this.armor; i < 4; i++) {         // трещины на панцире: чем больше снято, тем заметнее
+        const x = i % 2 ? 4 : -4;
         g.beginPath();
         g.moveTo(x, 9); g.lineTo(x - 1, 10.5); g.lineTo(x + 1, 11.5); g.lineTo(x, 13);
         stroke(g, 1.2);
+      }
+      if (this.rank >= 1) {                          // железный: наплечники
+        for (const side of [-1, 1]) {
+          oval(g, side * 14, -5, 6.4, 4.6);
+          metal(g, IRON, 1.1);
+        }
+      }
+      if (this.rank >= 2) {                          // змеиный: чешуйчатый гребень
+        for (const [x, y] of [[-7, -13.5], [0, -15], [7, -13.5]]) {
+          oval(g, x, y, 3.4, 2.2);
+          fill(g, tones ? tones[0] : '#b6f59a');
+          stroke(g, 0.8);
+        }
+      }
+      if (this.rank >= 3) {                          // древний: корона
+        poly(g, [[-9, -13], [-6, -20], [-3, -13], [0, -21], [3, -13], [6, -20], [9, -13]]);
+        fill(g, '#ffd24a');
+        stroke(g, 1.1);
+      }
+    } else if (this.kind === 'thief') {
+      g.beginPath();                                 // повязка вора через глаза
+      g.roundRect(-11.5, -10.2, 23, 4.6, 2);
+      fill(g, '#26221c');
+      stroke(g, 1);
+      if (this.loot) {                               // добыча на спине: вещмешок
+        poly(g, [[-6, -13], [6, -13], [8, -19], [0, -15.5], [-8, -19]]);
+        fill(g, '#8a7a52');
+        stroke(g, 1);
+        oval(g, 0, -8.5, 7, 6.2);
+        fill(g, '#b49a62');
+        stroke(g, 1.2);
+        line(g, -4, -10, 4, -10, 1, 'rgba(18, 13, 10, 0.5)');
       }
     } else if (this.kind === 'queen') {
       poly(g, [[-8, -14], [-5, -21], [-2, -14], [0, -22], [2, -14], [5, -21], [8, -14]]);

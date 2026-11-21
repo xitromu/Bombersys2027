@@ -235,7 +235,8 @@ export class HeroView {
     const { time, lying } = this.fallen();
     if (!lying) return null;
     for (const enemy of enemies) {
-      if (enemy.in_wall) continue;                 // призрак в стене безвреден — и тело не тронет
+      // безвредные тело не тронут: призрак в стене, крот под землёй, трусливый воришка
+      if (enemy.in_wall || enemy.burrowed || enemy.kind === 'thief') continue;
       const snake = enemy.kind === 'snake';
       const big = enemy.kind === 'boss' || enemy.kind === 'queen';
       if (!snake && (big ? death.half : death.headless)) continue;

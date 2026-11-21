@@ -176,4 +176,31 @@ export const SFX = {
       s.tone(B, { wave: 'square25', freq: 300, to: 1400, at: o.at, dur: 0.3, vol: 0.45, release: 0.08, pan: o.pan });
     },
   },
+
+  thiefGrab: {
+    title: 'Воришка схватил бонус — писк «и-и!»',
+    play(s, o) {
+      const p = o.pitch;
+      s.tone(B, { wave: 'square25', freq: 1400 * p, to: 2100 * p, at: o.at, dur: 0.09, vol: 0.4, release: 0.05, pan: o.pan });
+      s.tone(B, { wave: 'square25', freq: 2100 * p, to: 1500 * p, at: o.at + 0.09, dur: 0.1, vol: 0.35, release: 0.08, pan: o.pan });
+      s.noise(B, { filter: 'highpass', freq: 4000, at: o.at + 0.02, dur: 0.02, vol: 0.12, release: 0.04, pan: o.pan });
+    },
+  },
+
+  moleDig: {
+    title: 'Крот нырнул (вынырнул) — земляной шорох',
+    play(s, o) {
+      s.noise(B, { filter: 'lowpass', freq: 700, to: 250, rate: 0.4, at: o.at, dur: 0.16, attack: 0.01, vol: 0.8, release: 0.18, pan: o.pan });
+      s.noise(B, { filter: 'bandpass', freq: 350, q: 1.2, rate: 0.3, at: o.at + 0.1, dur: 0.12, vol: 0.5, release: 0.2, pan: o.pan });
+      s.tone(B, { wave: 'triangle', freq: 90 * o.pitch, to: 55, at: o.at, dur: 0.12, vol: 0.35, release: 0.15, pan: o.pan });
+    },
+  },
+
+  moleEat: {
+    title: 'Крот сожрал бонус — глоток «хряп»',
+    play(s, o) {
+      s.tone(B, { wave: 'square12', freq: 240 * o.pitch, to: 90, at: o.at, dur: 0.12, vol: 0.45, release: 0.1, pan: o.pan });
+      s.noise(B, { filter: 'lowpass', freq: 1100, rate: 0.3, at: o.at + 0.08, dur: 0.1, vol: 0.5, release: 0.14, pan: o.pan });
+    },
+  },
 };

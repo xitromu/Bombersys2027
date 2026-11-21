@@ -233,6 +233,60 @@ def test_no_frenzy_while_two_enemies_or_a_queen_remain():
 
 # ------------------------------------------------------------------ босс
 
+def test_boss_ranks_differ_in_look_and_behavior():
+    """Каждые 5 уровней — другой босс: броня, скорость и подмога растут от ранга."""
+    from app.game.config import BOSS_RANKS, boss_rank
+    assert [boss_rank(l) for l in (5, 10, 15, 20, 25, 1)] == [0, 1, 2, 3, 3, 0]
+    speeds, armors = [], []
+    for level, rank in ((5, 0), (10, 1), (15, 2), (20, 3)):
+        game = make_game(level=level, board=Board.empty())
+        boss = game._new_enemy((8, 0), kind="boss")
+        assert boss.armor == BOSS_RANKS[rank]["armor"]
+        armors.append(boss.armor)
+        speeds.append(boss.speed)
+    assert armors == [2, 3, 2, 4]           # железный толще, змеиный легче, древний — бронирован всласть
+    assert speeds[2] > speeds[1]            # змеиный быстрее железного
+    state = Game(players=1, rng=random.Random(2), level=15).snapshot()
+    boss = next(e for e in state["enemies"] if e["kind"] == "boss")
+    assert boss["rank"] == 2                # браузер рисует ранг своим видом
+
+
+def test_boss_minions_depend_on_rank():
+    from app.game.config import BOSS_RANKS, boss_rank
+    game = make_game(level=15, board=Board.empty())
+    boss = game._new_enemy((8, 8), kind="boss")
+    game.enemies = {boss.id: boss}
+    game._boss_minions(boss)
+    rank = BOSS_RANKS[boss_rank(15)]
+    minions = [e for e in game.enemies.values() if e.id != boss.id]
+    assert len(minions) == rank["minions"]
+    assert all(e.kind == rank["minion"] for e in minions)
+    assert all(len(e.trail) >= 2 for e in minions)   # змеиная подмога появляется сразу во всю длину
+
+
+def test_boss_score_grows_with_rank():
+    from app.game.config import BOSS_RANKS, boss_rank
+    for level, mult in ((5, 1), (10, 2)):
+        game = make_game(level=level, board=Board.empty())
+        far_player(game)
+        boss = game._new_enemy((6, 0), kind="boss")
+        boss.wait = 100
+        game.enemies = {boss.id: boss}
+        dummy(game)
+        for _ in range(BOSS_RANKS[boss_rank(level)]["armor"]):
+            blow(game, (4, 0))
+            run(game, 0.1)
+            for minion in game.enemies.values():        # подмога стоит смирно вдали — не лезет под следующий взрыв
+                minion.wait = 1000
+                if minion.id not in (boss.id, 9999):
+                    minion.x, minion.y = 12.0, 12.0
+            run(game, FLAME_TIME + 1.2)      # огонь погас, неуязвимость прошла
+        blow(game, (4, 0))
+        run(game, 0.3)
+        assert boss.id not in game.enemies
+        assert game.players[0].score == BOSS_SCORE * mult
+
+
 def test_boss_levels_are_arenas_with_a_boss_and_no_hidden_door():
     settings = for_level(5)
     assert settings.boss and settings.walls == BOSS_WALLS and settings.snakes == 0
@@ -280,17 +334,19 @@ def test_special_enemies_appear_on_schedule_and_replace_ordinary_ones():
     assert for_level(6).phantoms == 0 and for_level(7).phantoms == 1
     assert for_level(7).queens == 0 and for_level(8).queens == 1
     assert for_level(8).bombers == 0 and for_level(9).bombers == 1
+    assert for_level(6).thieves == 0 and for_level(7).thieves == 1
+    assert for_level(10).moles == 0 and for_level(11).moles == 1   # 10-й — босс, кроты с соседнего уровня
     assert (for_level(12).armored, for_level(13).bombers, for_level(14).phantoms) == (2, 2, 2)
     for level in range(1, 21):
         s = for_level(level)
         if not s.boss:
-            assert s.snakes + s.armored + s.phantoms + s.queens + s.bombers <= s.enemies
+            assert s.snakes + s.armored + s.phantoms + s.queens + s.bombers + s.thieves + s.moles <= s.enemies
     game = Game(players=1, rng=random.Random(5), level=9)
     kinds = [e.kind for e in game.enemies.values()]
     s = for_level(9)
     assert len(kinds) == s.enemies
     for kind, count in (("armored", s.armored), ("phantom", s.phantoms), ("queen", s.queens),
-                        ("bomber", s.bombers), ("snake", s.snakes)):
+                        ("bomber", s.bombers), ("snake", s.snakes), ("thief", s.thieves)):
         assert kinds.count(kind) == count
 
 

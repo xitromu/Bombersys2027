@@ -68,15 +68,18 @@ class Enemy:
     memory_left: float = 0.0
     wait: float = 0.0               # стоит на месте (некуда идти)
     # ghost — обычный зубастик, snake — змея (snake.py), armored — броненосец, phantom — призрак,
-    # queen — матка, bomber — подрывник, boss — гигантский зубастик
+    # queen — матка, bomber — подрывник, thief — воришка, mole — крот, boss — гигантский зубастик
     kind: str = "ghost"
     trail: list[tuple[float, float]] = field(default_factory=list)   # змея: путь головы, свежие точки первыми
     armor: int = 0                  # сколько взрывов переживёт (панцири броненосца и босса)
     invuln: float = 0.0             # после треснувшего панциря огонь 잠시 не берёт
     mother: int | None = None       # ребёнок матки: id матки (чтобы считать живых детей)
-    cooldown: float = 0.0           # матка: до следующего ребёнка; подрывник: до следующей бомбы
+    cooldown: float = 0.0           # матка: до следующего ребёнка; подрывник: до следующей бомбы;
+                                    # крот: до следующего нырка
     flee: float = 0.0               # подрывник удирает от игрока ещё столько секунд
     enraged: bool = False           # ярость последнего: остался один и озверел
+    loot: int | None = None         # воришка: id бонуса, который тащит в лапах
+    burrowed: float = 0.0           # крот: столько секунд ещё под землёй (0 — на поверхности)
 
     @property
     def cell(self) -> Cell:
@@ -119,3 +122,4 @@ class Item:
     kind: str   # door, chest, bomb, life, death, bag, bigbag, gems, remote, fire, shield, boots
     revealed_by: int | None = None  # бомба, открывшая бонус, — её огонь бонус не трогает
     burned: bool = False            # для двери: в неё попал огонь
+    carried: int | None = None      # воришка тащит: id врага (с поля бонус убран, но живёт у него в лапах)
