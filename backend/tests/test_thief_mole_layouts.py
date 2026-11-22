@@ -147,21 +147,30 @@ def test_layouts_generate_distinct_boards_respecting_free_corners():
     for name, board in boards.items():
         assert all(board.get(c) == EMPTY for c in keep), name
         assert 30 <= len(board.cells_of(WALL)) <= 55, name
-    # «сквозной коридор»: есть две соседние строки без единой стены
+    # «сквозной коридор»: есть две соседние строки без единой стены — сквозной проход
     free_rows = [y for y in range(GRID) if all(boards["corridor"].get((x, y)) != WALL for x in range(GRID))]
     assert any(b - a == 1 for a, b in zip(free_rows, free_rows[1:]))
-    # «остров» — сплошные стены в центре
-    assert boards["island"].get((6, 6)) == WALL and boards["island"].get((8, 8)) == WALL
+    # «остров» — сплошные стены в центре, а вокруг острова чистая арена
+    island = boards["island"]
+    assert island.get((6, 6)) == WALL and island.get((8, 8)) == WALL
+    assert all(island.get(c) != WALL for c in ((4, 4), (10, 4), (4, 10), (10, 10)))
+    # «спираль» — два замкнутых вала с проходами: в среднем кольце проход только наверху,
+    # во внутреннем — только снизу
+    spiral = boards["spiral"]
+    assert spiral.get((4, 2)) == WALL and spiral.get((10, 2)) == WALL and spiral.get((7, 2)) != WALL
+    assert spiral.get((8, 6)) == WALL and spiral.get((8, 8)) == WALL and spiral.get((8, 12)) == WALL
+    assert spiral.get((7, 8)) != WALL
     # все четыре разные
     assert len({b.encode() for b in boards.values()}) == 4
 
 
 def test_layout_comes_from_level_settings():
-    assert for_level(4).layout == "random"
+    assert for_level(2).layout == "corridor"
+    assert for_level(3).layout == "island"
+    assert for_level(4).layout == "spiral"
     assert for_level(5).layout == "random"          # у босса арена
-    assert for_level(6).layout == "island"
-    assert for_level(7).layout == "spiral"
-    game = Game(players=1, rng=random.Random(11), level=6)
+    assert for_level(6).layout == "island"          # 5-й босс не в счёт, схемы продолжают круг
+    game = Game(players=1, rng=random.Random(11), level=3)
     assert len(game.board.cells_of(WALL)) >= 30
 
 

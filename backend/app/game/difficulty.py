@@ -49,7 +49,7 @@ def for_level(level: int, players: int = 1) -> LevelSettings:
     snakes = 0 if level < 4 else 1 if level < 9 else 2
     armored = phantoms = queens = bombers = thieves = moles = 0
     walls = min(40 + 2 * n, 70)
-    layout = "random" if boss or level < LAYOUT_FROM_LEVEL else LAYOUTS[level % len(LAYOUTS)]
+    layout = "random" if boss or level < LAYOUT_FROM_LEVEL else LAYOUTS[(level - LAYOUT_FROM_LEVEL) % len(LAYOUTS)]
     if boss:
         # арена: босс и горстка зубастика, стен меньше, особых врагов нет
         enemies = 2 + (1 if players == 2 else 0)

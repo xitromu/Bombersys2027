@@ -120,9 +120,9 @@ def boss_rank(level: int) -> int:
     """Какой это босс: 0 — на 5-м уровне, 1 — на 10-м и так далее (старше последнего описанного — он же)."""
     return min(max(level // BOSS_EVERY - 1, 0), len(BOSS_RANKS) - 1)
 
-# Планировки поля: с этого уровня каждая не-босская карта собирается по одной из схем
-LAYOUT_FROM_LEVEL = 5
-LAYOUTS = ("random", "corridor", "island", "spiral")
+# Планировки поля: со 2-го уровня каждая не-босская карта собирается по одной из схем, по кругу
+LAYOUT_FROM_LEVEL = 2
+LAYOUTS = ("corridor", "island", "spiral")
 
 # Бонусы-механики: действуют до гибели героя, между уровнями сохраняются
 MECHANIC_ITEMS = ("remote", "fire", "shield", "boots")

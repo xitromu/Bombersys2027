@@ -3,9 +3,9 @@
 В оригинале это была матрица char Matrix[15][15] с кодами 10/80/90/99.
 Здесь — сетка символов: "." пол, "w" стена, "#" колонна.
 
-Планировка: с 5-го уровня (не босс) поле собирается по одной из схем — «сквозной коридор»,
-«арена с островом», «лабиринт-улитка» или наугад, как раньше. У каждой схены свой характер:
-где убегать воришке, что кроту рыть, где игроку закрываться.
+Планировка: со 2-го уровня (не босс) поле собирается по одной из схем — «сквозной коридор»,
+«арена с островом» или «лабиринт-улитка» (боссы — наугад, у них своя арена). У каждой схемы свой
+характер: где убегать воришке, что кроту рыть, где игроку закрываться.
 """
 
 from __future__ import annotations
@@ -56,20 +56,27 @@ class Board:
 
     @classmethod
     def _layout_corridor(cls, rng: random.Random, walls: int, keep_free: set[Cell]) -> Board:
-        """«Сквозной коридор»: широкая кишка через всё поле — длинная погоня без тупиков,
-        а по бокам — глухие комнаты: воришке есть где прятать добычу, кроту — что вскрывать."""
+        """«Сквозной коридор»: две свободные строки через всё поле, а сверху и снизу — частокол
+        из одинаковых блоков с проходами между ними. Длинная погоня без тупиков;
+        воришке есть где прятать добычу, кроту — что вскрывать."""
         board = cls.empty()
-        y0 = rng.choice((5, 6, 7, 8))
-        band = {(x, y) for x in range(GRID) for y in (y0, y0 + 1)}
-        pool = [c for c in cls.empty().cells_of(EMPTY) if c not in keep_free and c not in band]
-        for cell in rng.sample(pool, min(walls, len(pool))):
+        y0 = rng.choice((6, 7))
+        band = {y0, y0 + 1}
+        blocks = [(x, y) for y in range(GRID) if y not in band
+                  for x in range(GRID) if x % 2 == 0 and y % 2 == 0 and (x, y) not in keep_free]
+        for cell in rng.sample(blocks, min(walls, len(blocks))):
             board.set(cell, WALL)
+        rest = [c for c in board.cells_of(EMPTY) if c not in keep_free and c[1] not in band]
+        over = walls - min(walls, len(blocks))
+        if over > 0:
+            for cell in rng.sample(rest, min(over, len(rest))):
+                board.set(cell, WALL)
         return board
 
     @classmethod
     def _layout_island(cls, rng: random.Random, walls: int, keep_free: set[Cell]) -> Board:
-        """«Арена с островом»: в центре — квадрат из стен с четырьмя входами,
-        дверь и бонусы чаще всего прячутся именно там. Крот отрезает остров от мостиков."""
+        """«Арена с островом»: в центре — квадрат из стен с четырьмя входами, вокруг него чистая
+        арена. Дверь и бонусы чаще всего прячутся в острове. Крот отрезает остров от мостиков."""
         board = cls.empty()
         island = [(x, y) for y in range(5, 10) for x in range(5, 10) if not cls.is_pillar_cell(x, y)]
         for cell in island:
@@ -78,30 +85,34 @@ class Board:
         for cell in gates:
             board.set(cell, EMPTY)
         made = len(island) - len(gates)
-        pool = [c for c in cls.empty().cells_of(EMPTY) if c not in keep_free and board.get(c) == EMPTY]
+        arena = {(x, y) for y in range(4, 11) for x in range(4, 11)}   # вокруг острова — не заваливать
+        pool = [c for c in board.cells_of(EMPTY) if c not in keep_free and c not in arena]
         for cell in rng.sample(pool, min(max(walls - made, 0), len(pool))):
             board.set(cell, WALL)
         return board
 
     @classmethod
     def _layout_spiral(cls, rng: random.Random, walls: int, keep_free: set[Cell]) -> Board:
-        """«Лабиринт-улитка»: спираль валов от краёв к центру, между валами — по проходу.
-        Кемпиться негде: коридоры длинные, а крот прорубает прямые ходы через валы."""
+        """«Лабиринт-улитка»: два вала — кольцо посреди поля и квадрат у центра, каждый с одним
+        проходом с противоположных сторон: внутрь попадаешь, обойдя вал кругом. Снаружи — редкие
+        стены. Кемпиться негде, а крот прорубает прямые ходы через валы."""
         board = cls.empty()
         forbidden = keep_free | {(7, 7)}
-        ring_walls: list[Cell] = []
-        ring = 0
-        while GRID - 2 * ring > 3:
-            x0, x1 = ring, GRID - 1 - ring
-            y0, y1 = ring, GRID - 1 - ring
-            wall_cells = ([(x, y0) for x in range(x0, x1 + 1)] + [(x1, y) for y in range(y0, y1 + 1)]
-                          + [(x, y1) for x in range(x0, x1 + 1)] + [(x0, y) for y in range(y0, y1 + 1)])
-            wall_cells = [c for c in dict.fromkeys(wall_cells) if c not in forbidden and not cls.is_pillar_cell(*c)]
-            ring_walls.extend(rng.sample(wall_cells, min(len(wall_cells), max(walls // 3, 6))))
-            ring += 2                   # следующий вал — через ряд, чтобы остались проходы
-        # остальные стены — наугад, но не там, где уже вал
-        pool = [c for c in cls.empty().cells_of(EMPTY) if c not in keep_free and c not in ring_walls]
-        for cell in ring_walls + rng.sample(pool, min(max(walls - len(ring_walls), 0), len(pool))):
+
+        def ring(offset: int, gap: Cell) -> list[Cell]:
+            lo, hi = offset, GRID - 1 - offset
+            cells = ([(x, lo) for x in range(lo, hi + 1)] + [(x, hi) for x in range(lo, hi + 1)]
+                     + [(lo, y) for y in range(lo + 1, hi)] + [(hi, y) for y in range(lo + 1, hi)])
+            return [c for c in cells if c != gap and c not in forbidden and not cls.is_pillar_cell(*c)]
+
+        pattern = ring(2, (7, 2)) + ring(6, (7, 8))
+        if walls < len(pattern):                         # бюджет мал — вал с прорехами, но проходы целы
+            pattern = rng.sample(pattern, walls)
+        for cell in pattern:
+            board.set(cell, WALL)
+        rest = [c for c in board.cells_of(EMPTY) if c not in keep_free
+                and (c[0] < 2 or c[1] < 2 or c[0] > 12 or c[1] > 12)]   # только внешний край
+        for cell in rng.sample(rest, min(max(walls - len(pattern), 0), len(rest))):
             board.set(cell, WALL)
         return board
 
