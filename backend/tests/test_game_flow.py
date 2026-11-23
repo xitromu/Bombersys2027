@@ -41,6 +41,20 @@ def test_door_takes_player_to_next_level():
     assert game.level == 2 and game.phase == "ready"
 
 
+def test_door_stays_for_the_second_player():
+    game = make_game(players=2, board=Board.empty())
+    door = Item(1, (2, 0), "door")
+    game.items = {1: door}
+    game.set_direction(0, "right")
+    run(game, 1.0)
+    assert game.players[0].state == "exited"
+    assert game.items.get(1) is door                       # второй игрок тоже должен увидеть дверь
+    game.players[1].x, game.players[1].y = 0.0, 0.0
+    game.set_direction(1, "right")
+    run(game, 1.0)
+    assert game.players[1].state == "exited"
+
+
 def test_early_turn_keeps_walking_until_passage():
     game = make_game(board=Board.empty())
     game.players[0].x, game.players[0].y = 1.0, 0.0

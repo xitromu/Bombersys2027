@@ -442,13 +442,15 @@ class Game:
         kind = item.kind
         if kind != "door" and not self._item_gives_effect(player, kind):
             return
-        self.items.pop(item.id, None)
-        self._emit("item_taken", player=player.index, kind=kind, x=item.cell[0], y=item.cell[1])
         if kind == "door":
+            # дверь общая: первый прошёл — она остаётся для второго
             player.state, player.state_time = "exited", 0.0
             player.wanted, player.moving = None, False
             self._emit("player_exited", player=player.index)
-        elif kind == "bomb":
+            return
+        self.items.pop(item.id, None)
+        self._emit("item_taken", player=player.index, kind=kind, x=item.cell[0], y=item.cell[1])
+        if kind == "bomb":
             player.capacity += 1
         elif kind == "life":
             player.lives += 1
