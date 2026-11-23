@@ -34,6 +34,39 @@ SHELTER_CLEARINGS = {
 }
 
 
+def _mirror4(cells: set[Cell]) -> set[Cell]:
+    out: set[Cell] = set()
+    for x, y in cells:
+        out.update(((x, y), (GRID - 1 - x, y), (x, GRID - 1 - y), (GRID - 1 - x, GRID - 1 - y)))
+    return out
+
+
+_CLASSIC_PILLARS = {(x, y) for y in range(GRID) for x in range(GRID) if x % 2 == 1 and y % 2 == 1}
+_BLOCK_PILLARS = (_CLASSIC_PILLARS - SHELTER_CLEARINGS) | {c for block in SHELTER_BLOCKS for c in block}
+_BASTION_PILLARS = {c for c in _mirror4({
+    (3, 3), (4, 3), (3, 4), (4, 4), (1, 5), (5, 1), (5, 5), (2, 6), (6, 2),
+}) if c[0] != GRID // 2 and c[1] != GRID // 2}
+_RING_PILLARS = {(x, 3) for x in range(3, 12) if x != 7} | {(x, 11) for x in range(3, 12) if x != 7}
+_RING_PILLARS |= {(3, y) for y in range(4, 11) if y != 7} | {(11, y) for y in range(4, 11) if y != 7}
+_RING_PILLARS |= _mirror4({(1, 1), (2, 1), (1, 2), (6, 6), (7, 6), (6, 7), (7, 7)})
+_CROSS_PILLARS = _mirror4({(7, 2), (7, 4), (2, 7), (4, 7), (3, 3), (4, 3), (3, 4), (4, 4), (5, 5)})
+_COLONNADE_PILLARS = _mirror4({
+    (2, 2), (3, 2), (2, 3), (3, 3), (6, 2), (6, 3),
+    (2, 6), (3, 6), (6, 6), (6, 7), (7, 6), (7, 7),
+})
+
+PILLAR_PATTERNS = {
+    "classic": _CLASSIC_PILLARS,
+    "blocks": _BLOCK_PILLARS,
+    "bastions": _BASTION_PILLARS,
+    "ring": _RING_PILLARS,
+    "cross": _CROSS_PILLARS,
+    "colonnade": _COLONNADE_PILLARS,
+}
+PILLAR_PATTERN_ORDER = ("classic", "blocks", "bastions", "ring", "cross", "colonnade")
+NEW_PILLAR_PATTERNS = PILLAR_PATTERN_ORDER[1:]
+
+
 class Board:
     def __init__(self, cells: list[list[str]]):
         self.cells = cells  # cells[y][x]
@@ -44,20 +77,15 @@ class Board:
         return x % 2 == 1 and y % 2 == 1
 
     @classmethod
-    def empty(cls, blocks: bool = False, mirrored: bool = False) -> Board:
-        """Голое поле; blocks — симметричные укрытия вместо части одиночных колонн."""
-        pillars = {(x, y) for y in range(GRID) for x in range(GRID) if cls.is_pillar_cell(x, y)}
-        if blocks:
-            pillars.difference_update(SHELTER_CLEARINGS)
-            pillars.update(cell for block in SHELTER_BLOCKS for cell in block)
-            if mirrored:
-                pillars = {(GRID - 1 - x, y) for x, y in pillars}
+    def empty(cls, pattern: str = "classic") -> Board:
+        """Голое поле с выбранной симметричной расстановкой невзрываемых колонн."""
+        pillars = PILLAR_PATTERNS.get(pattern, _CLASSIC_PILLARS)
         return cls([[PILLAR if (x, y) in pillars else EMPTY for x in range(GRID)] for y in range(GRID)])
 
     @classmethod
-    def generate(cls, rng: random.Random, walls: int, keep_free: set[Cell]) -> Board:
+    def generate(cls, rng: random.Random, walls: int, keep_free: set[Cell], pattern: str = "classic") -> Board:
         """Случайно расставляет стены, не трогая клетки из keep_free (углы игроков)."""
-        board = cls.empty(blocks=True, mirrored=rng.choice((False, True)))
+        board = cls.empty(pattern)
         candidates = [
             (x, y)
             for y in range(GRID)
@@ -69,18 +97,18 @@ class Board:
         return board
 
     @classmethod
-    def with_layout(cls, rng: random.Random, walls: int, keep_free: set[Cell], layout: str) -> Board:
+    def with_layout(cls, rng: random.Random, walls: int, keep_free: set[Cell], layout: str, pattern: str = "classic") -> Board:
         """Поле по имени планировки; 'random' и неизвестные имена — старый наугад."""
         makers = {"corridor": cls._layout_corridor, "island": cls._layout_island, "spiral": cls._layout_spiral}
         maker = makers.get(layout)
-        return maker(rng, walls, keep_free) if maker else cls.generate(rng, walls, keep_free)
+        return maker(rng, walls, keep_free, pattern) if maker else cls.generate(rng, walls, keep_free, pattern)
 
     @classmethod
-    def _layout_corridor(cls, rng: random.Random, walls: int, keep_free: set[Cell]) -> Board:
+    def _layout_corridor(cls, rng: random.Random, walls: int, keep_free: set[Cell], pattern: str = "classic") -> Board:
         """«Сквозной коридор»: две свободные строки через всё поле, а сверху и снизу — частокол
         из одинаковых блоков с проходами между ними. Длинная погоня без тупиков;
         воришке есть где прятать добычу, кроту — что вскрывать."""
-        board = cls.empty(blocks=True, mirrored=rng.choice((False, True)))
+        board = cls.empty(pattern)
         y0 = rng.choice((6, 7))
         band = {y0, y0 + 1}
         blocks = [(x, y) for y in range(GRID) if y not in band
@@ -96,10 +124,10 @@ class Board:
         return board
 
     @classmethod
-    def _layout_island(cls, rng: random.Random, walls: int, keep_free: set[Cell]) -> Board:
+    def _layout_island(cls, rng: random.Random, walls: int, keep_free: set[Cell], pattern: str = "classic") -> Board:
         """«Арена с островом»: в центре — квадрат из стен с четырьмя входами, вокруг него чистая
         арена. Дверь и бонусы чаще всего прячутся в острове. Крот отрезает остров от мостиков."""
-        board = cls.empty(blocks=True, mirrored=rng.choice((False, True)))
+        board = cls.empty(pattern)
         island = [(x, y) for y in range(5, 10) for x in range(5, 10) if board.get((x, y)) != PILLAR]
         for cell in island:
             board.set(cell, WALL)
@@ -114,11 +142,11 @@ class Board:
         return board
 
     @classmethod
-    def _layout_spiral(cls, rng: random.Random, walls: int, keep_free: set[Cell]) -> Board:
+    def _layout_spiral(cls, rng: random.Random, walls: int, keep_free: set[Cell], pattern: str = "classic") -> Board:
         """«Лабиринт-улитка»: два вала — кольцо посреди поля и квадрат у центра, каждый с одним
         проходом с противоположных сторон: внутрь попадаешь, обойдя вал кругом. Снаружи — редкие
         стены. Кемпиться негде, а крот прорубает прямые ходы через валы."""
-        board = cls.empty(blocks=True, mirrored=rng.choice((False, True)))
+        board = cls.empty(pattern)
         forbidden = keep_free | {(7, 7)}
 
         def ring(offset: int, gap: Cell) -> list[Cell]:

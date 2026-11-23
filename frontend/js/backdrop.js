@@ -11,7 +11,7 @@ export function drawBackdrop(scene) {
   scene.add.image(FIELD_X, FIELD_Y, 'floor').setOrigin(0).setTint(0x666666);
   for (let y = 1; y < GRID; y += 2) {
     for (let x = 1; x < GRID; x += 2) {
-      addFieldCell(scene, 'pillars', x, y, 0).setTint(0x777777);
+      addFieldCell(scene, 'pillar', x, y, 0).setTint(0x777777);
     }
   }
 

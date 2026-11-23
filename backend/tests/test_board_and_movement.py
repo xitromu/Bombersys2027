@@ -1,7 +1,8 @@
 import random
 
-from app.game.board import EMPTY, PILLAR, SHELTER_BLOCKS, WALL, Board
+from app.game.board import EMPTY, NEW_PILLAR_PATTERNS, PILLAR, PILLAR_PATTERNS, WALL, Board
 from app.game.config import GRID
+from app.game.engine import Game
 from app.game.movement import move_on_grid
 
 
@@ -19,7 +20,7 @@ def assert_connected_ignoring_walls(board):
     assert seen == {(x, y) for y in range(GRID) for x in range(GRID)} - pillars
 
 
-def test_generated_board_has_block_shelters_and_free_corners():
+def test_generated_board_has_free_corners_and_connected_field():
     keep = {(0, 0), (1, 0), (0, 1), (14, 14), (13, 14), (14, 13)}
     board = Board.generate(random.Random(5), walls=40, keep_free=keep)
     assert len(board.cells_of(PILLAR)) == 49
@@ -29,30 +30,42 @@ def test_generated_board_has_block_shelters_and_free_corners():
     assert_connected_ignoring_walls(board)
 
 
-def test_block_shelters_are_symmetric_and_keep_the_field_connected():
-    for mirrored in (False, True):
-        board = Board.empty(blocks=True, mirrored=mirrored)
-        blocks = SHELTER_BLOCKS
-        if mirrored:
-            blocks = tuple(tuple((GRID - 1 - x, y) for x, y in block) for block in blocks)
-        assert all(board.get(cell) == PILLAR for block in blocks for cell in block)
-        assert len(board.cells_of(PILLAR)) == 49
+def test_pillar_patterns_are_symmetric_and_connected():
+    for name, pillars in PILLAR_PATTERNS.items():
+        board = Board.empty(name)
+        assert set(board.cells_of(PILLAR)) == pillars, name
         for y in range(GRID):
             for x in range(GRID):
-                assert (board.get((x, y)) == PILLAR) == (board.get((GRID - 1 - x, GRID - 1 - y)) == PILLAR)
+                assert (board.get((x, y)) == PILLAR) == (board.get((GRID - 1 - x, GRID - 1 - y)) == PILLAR), name
         assert_connected_ignoring_walls(board)
 
 
-def test_layouts_preserve_block_shelters_and_connected_core():
+def test_bastions_have_open_central_cross():
+    board = Board.empty("bastions")
+    center = GRID // 2
+    assert all(board.get((center, y)) == EMPTY for y in range(GRID))
+    assert all(board.get((x, center)) == EMPTY for x in range(GRID))
+
+
+def test_odd_levels_keep_classic_and_even_levels_use_new_patterns():
+    for level in range(1, 7):
+        game = Game(players=1, rng=random.Random(level), level=level)
+        pillars = set(game.board.cells_of(PILLAR))
+        if level % 2:
+            assert pillars == PILLAR_PATTERNS["classic"], level
+        else:
+            assert any(pillars == PILLAR_PATTERNS[name] for name in NEW_PILLAR_PATTERNS), level
+
+
+def test_layouts_preserve_selected_pattern_and_connected_core():
     keep = {(0, 0), (1, 0), (0, 1), (14, 14), (13, 14), (14, 13)}
-    mirrored_blocks = tuple(tuple((GRID - 1 - x, y) for x, y in block) for block in SHELTER_BLOCKS)
     for layout in ("random", "corridor", "island", "spiral"):
-        for seed in range(12):
-            board = Board.with_layout(random.Random(seed), walls=70, keep_free=keep, layout=layout)
-            assert (all(all(board.get(cell) == PILLAR for cell in block) for block in SHELTER_BLOCKS)
-                    or all(all(board.get(cell) == PILLAR for cell in block) for block in mirrored_blocks)), layout
-            assert all(board.get(cell) == EMPTY for cell in keep), layout
-            assert_connected_ignoring_walls(board)
+        for name, pillars in PILLAR_PATTERNS.items():
+            for seed in range(4):
+                board = Board.with_layout(random.Random(seed), walls=70, keep_free=keep, layout=layout, pattern=name)
+                assert set(board.cells_of(PILLAR)) == pillars, (layout, name)
+                assert all(board.get(cell) == EMPTY for cell in keep), (layout, name)
+                assert_connected_ignoring_walls(board)
 
 
 def test_walk_along_corridor_and_stop_at_pillar():

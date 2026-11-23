@@ -222,7 +222,7 @@ export class GameScene extends Phaser.Scene {
       const isPillar = grid[i] === '#';
       const pillar = this.pillars.get(i);
       if (isPillar && !pillar) {
-        this.pillars.set(i, addFieldCell(this, 'pillars', i % GRID, Math.floor(i / GRID), DEPTH.pillars));
+        this.pillars.set(i, addFieldCell(this, 'pillar', i % GRID, Math.floor(i / GRID), DEPTH.pillars));
       } else if (!isPillar && pillar) {
         pillar.destroy();
         this.pillars.delete(i);
@@ -235,7 +235,7 @@ export class GameScene extends Phaser.Scene {
       const isWall = grid[i] === 'w';
       const wall = this.walls.get(i);
       if (isWall && !wall) {
-        this.walls.set(i, addFieldCell(this, 'walls', i % GRID, Math.floor(i / GRID), DEPTH.walls));
+        this.walls.set(i, addFieldCell(this, 'wall', i % GRID, Math.floor(i / GRID), DEPTH.walls));
       } else if (!isWall && wall) {
         this.walls.delete(i);
         this.tweens.addCounter({                    // стена сгорает: чернеет и тает
