@@ -1,6 +1,6 @@
 import random
 
-from app.game.board import EMPTY, NEW_PILLAR_PATTERNS, PILLAR, PILLAR_PATTERNS, WALL, Board
+from app.game.board import EMPTY, NEW_PILLAR_PATTERNS, PILLAR, PILLAR_PATTERNS, PILLAR_PATTERN_SEQUENCE, WALL, Board
 from app.game.config import GRID
 from app.game.engine import Game
 from app.game.movement import move_on_grid
@@ -47,14 +47,17 @@ def test_bastions_have_open_central_cross():
     assert all(board.get((x, center)) == EMPTY for x in range(GRID))
 
 
-def test_odd_levels_keep_classic_and_even_levels_use_new_patterns():
-    for level in range(1, 7):
+def test_odd_levels_cycle_through_six_symmetric_patterns_and_even_levels_are_random():
+    for level in range(1, 13):
         game = Game(players=1, rng=random.Random(level), level=level)
         pillars = set(game.board.cells_of(PILLAR))
         if level % 2:
-            assert pillars == PILLAR_PATTERNS["classic"], level
+            expected = PILLAR_PATTERN_SEQUENCE[((level - 1) // 2) % len(PILLAR_PATTERN_SEQUENCE)]
+            assert pillars == PILLAR_PATTERNS[expected], (level, expected)
         else:
             assert any(pillars == PILLAR_PATTERNS[name] for name in NEW_PILLAR_PATTERNS), level
+    assert set(PILLAR_PATTERN_SEQUENCE) == set(PILLAR_PATTERNS)
+    assert len(PILLAR_PATTERN_SEQUENCE) == 6
 
 
 def test_layouts_preserve_selected_pattern_and_connected_core():

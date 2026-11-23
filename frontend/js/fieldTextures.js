@@ -21,5 +21,5 @@ export function fieldCellTexture(scene, kind) {
 }
 
 export function addFieldCell(scene, kind, x, y, depth) {
-  return scene.add.image(cellLeft(x), cellTop(y), fieldCellTexture(scene, kind)).setDepth(depth);
+  return scene.add.image(cellLeft(x), cellTop(y), fieldCellTexture(scene, kind)).setOrigin(0).setDepth(depth);
 }

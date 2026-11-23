@@ -19,7 +19,7 @@ import math
 import random
 
 from . import ai, snake
-from .board import EMPTY, NEW_PILLAR_PATTERNS, PILLAR, WALL, Board, Cell
+from .board import EMPTY, NEW_PILLAR_PATTERNS, PILLAR, PILLAR_PATTERN_SEQUENCE, WALL, Board, Cell
 from .config import (
     ARMOR_INVULN,
     ARMORED_SPEEDUP,
@@ -136,7 +136,10 @@ class Game:
         keep_free: set[Cell] = set()
         for sx, sy in SPAWNS:  # угол и две соседние клетки — чтобы было куда отойти от первой бомбы
             keep_free |= {(sx, sy), (sx + (1 if sx == 0 else -1), sy), (sx, sy + (1 if sy == 0 else -1))}
-        pattern = "classic" if self.level % 2 else self.rng.choice(NEW_PILLAR_PATTERNS)
+        if self.level % 2:
+            pattern = PILLAR_PATTERN_SEQUENCE[((self.level - 1) // 2) % len(PILLAR_PATTERN_SEQUENCE)]
+        else:
+            pattern = self.rng.choice(NEW_PILLAR_PATTERNS)
         self.board = Board.with_layout(self.rng, self.settings.walls, keep_free, self.settings.layout, pattern)
         self.hidden = self._hide_items()
         self.items: dict[int, Item] = {}
