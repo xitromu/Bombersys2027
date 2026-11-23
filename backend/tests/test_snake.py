@@ -3,7 +3,7 @@ import random
 
 from app.game import snake
 from app.game.board import EMPTY, WALL, Board
-from app.game.config import BOMB_FUSE, ENEMY_SCORES, SNAKE_LENGTH, SNAKE_REMAINS, SNAKE_SCORE_FACTOR
+from app.game.config import BOMB_FUSE, ENEMY_SCORES, SNAKE_LENGTH, SNAKE_REMAINS, SNAKE_SCORE_FACTOR, snake_rank
 from app.game.difficulty import for_level
 from app.game.engine import Game
 from app.game.entities import Bomb, Enemy
@@ -118,6 +118,14 @@ def test_snakes_appear_from_level_four_and_replace_ordinary_enemies():
     seen = next(e for e in game.snapshot()["enemies"] if e["kind"] == "snake")
     assert seen["path"][0] == [seen["x"], seen["y"]]            # ломаная тела для браузера начинается с головы…
     assert abs(length(seen["path"]) - SNAKE_LENGTH) < 1e-6      # …и змея сразу во всю длину
+
+
+def test_snake_colors_keep_the_old_ladder_and_add_purple_from_level_thirteen():
+    assert [snake_rank(n) for n in (4, 6, 7, 9, 10, 12, 13, 20)] == [0, 0, 1, 1, 2, 2, 3, 3]
+    for level, rank in ((4, 0), (7, 1), (11, 2), (13, 3)):
+        game = Game(players=1, rng=random.Random(2), level=level)
+        snakes = [enemy for enemy in game.snapshot()["enemies"] if enemy["kind"] == "snake"]
+        assert snakes and all(enemy["rank"] == rank for enemy in snakes)
 
 
 def test_snake_appears_at_full_length_on_free_cells():

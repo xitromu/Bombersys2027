@@ -189,64 +189,98 @@ function drawPhantom(g, clock) {
   fill(g, '#1a2a38');
 }
 
-// Крот — приземистое земляное тельце с лопатой-носом и лапами-рыхлителями. Под землёй рисуется
-// глубже и полупрозрачным, поверх — нора-горка: героя не трогает, огонь не берёт, но видно, где он.
+// Крот — копающий монстр: вытянутый ком земли, костяные резцы и широкие лапы-каналы с когтями.
+// Под землёй показываем только торчащий затылок и кучу земли — зверя не видно целиком.
 function drawMole(g, { clock = 0, walked = 0, look = [1, 0], burrowed = false }) {
-  const TONES = ['#d8c8ea', '#7a5aa8', '#3a2454'];   // фиолетово-серый, цвет земли в сумерках
+  const TONES = ['#d8c8ea', '#7a5aa8', '#3a2454'];
+  const CLAW = ['#f2e4c3', '#9c8455'];
   const step = Math.sin(walked / STRIDE);
-  const dir = look[0] < -0.01 ? -1 : 1;              // мордой по ходу
+  const dig = Math.sin(clock * 12);
+  const dir = look[0] < -0.01 ? -1 : 1;
   g.save();
-  if (burrowed) {
-    g.globalAlpha = 0.4;
-    g.translate(0, 8);
-  }
-  oval(g, 0, 20, 14, 4);                             // тень
+  oval(g, 0, 21, 16, 4);
   fill(g, 'rgba(0, 0, 0, 0.32)');
-  for (const side of [-1, 1]) {                      // лапы-лопаты шагают по очереди
-    oval(g, side * 8 + dir * 2, 16 - Math.max(0, side * step) * 2.6, 6.4, 4.6, side * 0.45);
-    fill(g, TONES[2]);
-    stroke(g, 1.2);
-  }
-  g.translate(0, 1 - Math.abs(step) * 1.1);
-  g.scale(dir, 1);
-  oval(g, -1, 1, 15.5, 11.5);                        // тельце
-  volume(g, TONES);
-  stroke(g, 1.6);
-  oval(g, -6, -4.5, 4.4, 2.4, -0.4);                 // блик
-  fill(g, 'rgba(255, 255, 255, 0.45)');
-  g.beginPath();                                     // нос-лопата
-  g.moveTo(11, -2);
-  g.quadraticCurveTo(20, -4.5, 20.5, 0.5);
-  g.quadraticCurveTo(20, 5.5, 11, 4);
-  g.closePath();
-  pair(g, ['#e8a8b8', '#a85a6e'], 1.2);
-  oval(g, 20.3, 0.5, 1.6);                           // ноздря
-  fill(g, '#5e2430');
-  for (const side of [-1, 1]) {                      // глаза-бусины и брови
-    oval(g, 5.5, -6.5 + side * 0.4, 2.1);
-    fill(g, '#fffdf4');
-    stroke(g, 0.8);
-    oval(g, 5.9, -6.4 + side * 0.4, 1.1);
-    fill(g, INK);
-    g.beginPath();
-    g.moveTo(3.2, -9.4);
-    g.lineTo(8, -8.8);
-    stroke(g, 1.4);
-  }
-  poly(g, [[13.5, 3], [16.5, 3], [15, 7.2]]);        // резцы
-  fill(g, '#fffdf4');
-  stroke(g, 0.7);
-  g.restore();
-  if (burrowed) {                                    // нора поверх: земляная горка с комьями
-    oval(g, 0, 16, 16, 5.5);
+  if (burrowed) {
+    g.globalAlpha = 0.45;
+    g.translate(-dir * 6, 11);
+    g.scale(dir, 1);
+    oval(g, 1, 0, 13, 8, -0.15);                   // над поверхностью остаётся затылок
+    volume(g, TONES);
+    stroke(g, 1.5);
+    for (const side of [-1, 1]) {
+      oval(g, -7 + side * 2, -4, 3.4, 2.2, -0.2);
+      fill(g, 'rgba(255, 255, 255, 0.3)');
+    }
+    g.restore();
+    oval(g, dir * 10, 16, 16, 5.5);                 // выброшенная земля
     fill(g, '#4a3826');
     stroke(g, 1.2);
-    for (const [x, r] of [[-9, 2.2], [-2, 2.8], [6, 2.2]]) {
-      oval(g, x, 13.5, r);
+    for (const [x, y, r] of [[0, 13, 2.8], [-9, 16, 2.1], [9, 18, 2.3], [15, 13, 1.5]]) {
+      oval(g, x, y, r);
       fill(g, '#5d4a33');
       stroke(g, 0.9);
     }
+    return;
   }
+
+  for (const side of [-1, 1]) {                     // лапы-каналы работают по очереди
+    g.save();
+    g.translate(side * 10 + dir * 3, 14 - Math.max(0, side * step) * 3);
+    g.scale(side, 1);
+    g.rotate(-0.45 + side * dig * 0.08);
+    poly(g, [[-3, -9], [3, -8], [7, 2], [13, 8], [10, 11], [3, 9], [-4, 4]]);
+    pair(g, TONES, 1.3);
+    for (let i = 0; i < 3; i++) {                   // землеройные когти
+      poly(g, [[8 + i * 1.3, 6], [14 + i * 1.8, 10 + i * 0.5], [10, 10.5]]);
+      pair(g, CLAW, 0.9);
+    }
+    g.restore();
+  }
+
+  g.translate(0, 1 - Math.abs(step) * 1.4);
+  g.scale(dir, 1);
+  g.beginPath();                                    // не овал, а ком с горбом и вытянутой мордой
+  g.moveTo(-16, 7);
+  g.bezierCurveTo(-19, -3, -12, -13, -2, -13);
+  g.quadraticCurveTo(6, -13, 12, -5);
+  g.quadraticCurveTo(18, -3, 18, 3);
+  g.quadraticCurveTo(18, 10, 10, 14);
+  g.quadraticCurveTo(-4, 18, -16, 7);
+  g.closePath();
+  volume(g, TONES);
+  stroke(g, 1.7);
+  g.beginPath();                                    // продольные борозды — монстр действительно копает
+  g.moveTo(-11, -8);
+  g.quadraticCurveTo(-5, -13, 1, -11);
+  g.moveTo(-14, -3);
+  g.quadraticCurveTo(-7, -8, 0, -5);
+  line(g, -12, -7, -6, -9, 1.1, 'rgba(58, 36, 84, 0.6)');
+  line(g, -14, -1, -7, -3, 1.1, 'rgba(58, 36, 84, 0.55)');
+  oval(g, -6, -4.5, 4.2, 2, -0.45);
+  fill(g, 'rgba(255, 255, 255, 0.35)');
+
+  g.beginPath();                                    // нос-лопата: широкая, с двумя ноздрями
+  g.moveTo(10, -4);
+  g.quadraticCurveTo(19, -6, 21.5, 0);
+  g.quadraticCurveTo(20, 7, 10, 5);
+  g.closePath();
+  pair(g, ['#e8a8b8', '#a85a6e'], 1.3);
+  oval(g, 18.5, 0.5, 1.5);
+  oval(g, 18, 4, 1.2);
+  fill(g, '#5e2430');
+  for (const side of [-1, 1]) {
+    oval(g, 5.7, -6.3 + side * 1.9, 2.2, 1.7);
+    fill(g, '#fffdf4');
+    stroke(g, 0.9);
+    oval(g, 6.1, -6.2 + side * 1.9, 1.1, 1.3);
+    fill(g, INK);
+    line(g, 3.4, -10 + side * 0.4, 8.2, -8 + side * 0.4, 1.5);
+  }
+  poly(g, [[11.5, 3], [14.2, 3], [12.8, 8.5]]);   // длинный резец, как у землероя
+  poly(g, [[15.1, 3], [17.5, 3.5], [16.1, 8]]);
+  fill(g, '#fffdf4');
+  stroke(g, 0.8);
+  g.restore();
 }
 
 function metal(g, tones = IRON, width = 1.2) {

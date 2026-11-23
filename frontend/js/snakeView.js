@@ -16,8 +16,8 @@ const WAVE = 2.6, WAVE_LENGTH = 40;  // извивы: размах и длина
 const SNOUT = 13.5;                  // от центра головы до кончика носа
 const DARK = '#120d0a';              // цвет контура — как у героя
 const SHADE = 'rgba(0, 0, 0, 0.28)';
-// Цвет у змеи свой, не как у призраков: зелёная, а чем старше уровень, тем серьёзнее — жёлтая и красная.
-const RANKS = [['#60c458', '#3e8a3a'], ['#ecc92e', '#a8861a'], ['#d63434', '#962020']];
+// Цвет у змеи свой, не как у призраков: зелёная, жёлтая, красная, фиолетовая — от старшей ступени.
+const RANKS = [['#60c458', '#3e8a3a'], ['#ecc92e', '#a8861a'], ['#d63434', '#962020'], ['#a56ce8', '#54208e']];
 
 const smooth = (u) => {
   const v = Math.max(0, Math.min(1, u));
@@ -28,8 +28,8 @@ function mix(a, b, t) {
   return `#${[0, 1, 2].map((i) => Math.round(part(a, i) + (part(b, i) - part(a, i)) * t).toString(16).padStart(2, '0')).join('')}`;
 }
 const COLORS = RANKS.map(([base, dark]) => ({ base, dark, deep: mix(dark, DARK, 0.5) }));
-// tier — ступень врагов уровня (0..3). Змеи появляются со ступени 1: на ней зелёная, на 2-й жёлтая, на 3-й красная.
-const colorsOf = (tier) => COLORS[Math.max(0, Math.min(COLORS.length - 1, tier - 1))];
+// rank — цвет змеи по уровню: 0 — зелёная, 1 — жёлтая, 2 — красная, 3 — фиолетовая.
+const colorsOf = (rank) => COLORS[Math.max(0, Math.min(COLORS.length - 1, rank))];
 
 // Толщина тела вдоль змеи: u = 0 — голова, 1 — кончик хвоста. Шея чуть уже, к хвосту сходит на нет.
 function taper(u) {
@@ -269,7 +269,7 @@ let serial = 0;
 export class SnakeView {
   constructor(scene, enemy) {
     this.scene = scene;
-    this.colors = colorsOf(enemy.tier);
+    this.colors = colorsOf(enemy.rank);
     this.key = `snake_canvas_${serial++}`;
     this.texture = scene.textures.createCanvas(this.key, SIZE * DETAIL, SIZE * DETAIL);
     this.image = scene.add.image(0, 0, this.key).setOrigin(0).setScale(1 / DETAIL);
@@ -285,6 +285,7 @@ export class SnakeView {
 
   // Новое состояние от сервера: path — ломаная [x, y] в клетках от головы к кончику хвоста.
   sync(enemy) {
+    this.colors = colorsOf(enemy.rank);
     const jump = !this.to || Math.abs(enemy.x - this.to[0][0]) + Math.abs(enemy.y - this.to[0][1]) > 1.5;
     this.from = jump ? enemy.path : this.to;
     this.to = enemy.path;

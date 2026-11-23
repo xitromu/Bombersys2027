@@ -5,10 +5,10 @@ import random
 from app.game.board import Board
 from app.game.config import (
     BLAST_RADIUS,
-    BOMB_BONUS_OVERFLOW_SCORE,
     BOMB_FUSE,
     BOOTS_FACTOR,
     LEVEL_END_TIME,
+    MAX_BOMBS,
     MAX_RADIUS,
     MECHANIC_ITEMS,
     PLAYER_SPEED,
@@ -21,7 +21,10 @@ from .conftest import make_game, run
 
 
 def give(game, kind):
-    game._apply_item(game.players[0], Item(777, (0, 0), kind))
+    player = game.players[0]
+    item = Item(777, player.cell, kind)
+    game.items[item.id] = item
+    game._apply_item(player, item)
 
 
 def test_two_mechanic_bonuses_hide_under_walls_each_level():
@@ -87,6 +90,32 @@ def test_chain_reaction_ignites_remote_bombs():
     assert not game.bombs                           # вторая не стала ждать клавишу
 
 
+def test_exited_player_can_still_detonate_remote_bombs():
+    game = make_game(players=2, board=Board.empty())
+    player = game.players[0]
+    give(game, "remote")
+    game.place_bomb(0)
+    player.x = 4.0
+    game.items[900] = Item(900, (4, 0), "door")
+    run(game, 0.1)
+    assert player.state == "exited" and game.phase == "playing"
+    game.detonate(0)
+    assert not game.bombs
+
+
+def test_exited_player_can_detonate_during_level_done():
+    game = make_game(board=Board.empty())
+    player = game.players[0]
+    give(game, "remote")
+    game.place_bomb(0)
+    player.x = 2.0
+    game.items[900] = Item(900, (2, 0), "door")
+    run(game, 0.1)
+    assert player.state == "exited" and game.phase == "level_done"
+    game.detonate(0)
+    assert not game.bombs
+
+
 # ------------------------------------------------------------------ огонь +1
 
 def test_fire_bonus_grows_the_cross_up_to_four():
@@ -98,8 +127,9 @@ def test_fire_bonus_grows_the_cross_up_to_four():
     give(game, "fire")
     assert player.radius == MAX_RADIUS
     score = player.score
-    give(game, "fire")                              # уже предел — деньгами
-    assert player.radius == MAX_RADIUS and player.score == score + BOMB_BONUS_OVERFLOW_SCORE
+    give(game, "fire")                              # уже предел — остаётся лежать
+    assert player.radius == MAX_RADIUS and player.score == score
+    assert 777 in game.items
 
 
 def test_bigger_cross_really_burns_farther():
@@ -174,10 +204,33 @@ def test_bonuses_survive_the_level_change():
     assert player.remote and player.boots and player.radius == BLAST_RADIUS + 1
 
 
-def test_duplicate_bonus_pays_coins():
+def test_useless_mechanic_bonus_stays_on_the_field():
     game = make_game(board=Board.empty())
     player = game.players[0]
     give(game, "remote")
     score = player.score
     give(game, "remote")
-    assert player.score == score + BOMB_BONUS_OVERFLOW_SCORE
+    assert player.remote and player.score == score
+    assert 777 in game.items
+
+
+def test_bomb_bonus_stays_at_capacity_limit():
+    game = make_game(board=Board.empty())
+    player = game.players[0]
+    player.capacity = MAX_BOMBS
+    score = player.score
+    give(game, "bomb")
+    assert player.capacity == MAX_BOMBS and player.score == score
+    assert 777 in game.items
+
+
+def test_modifier_counts_are_in_snapshot():
+    game = make_game(board=Board.empty())
+    player = game.players[0]
+    give(game, "bomb")
+    give(game, "fire")
+    give(game, "boots")
+    state = game.snapshot()["players"][0]
+    assert state["capacity"] == START_BOMBS + 1
+    assert state["radius"] == BLAST_RADIUS + 1
+    assert state["boots"]

@@ -5,13 +5,22 @@
 import { DETAIL, addCanvas, canvasTexture } from './canvasTexture.js';
 import { CELL, DEPTH, FONT, HEIGHT, PANEL_X, WIDTH, textStyle } from './layout.js';
 
+const MODIFIERS = {
+  bomb: (p) => Math.max(0, p.capacity - 3),
+  remote: (p) => Number(p.remote),
+  fire: (p) => Math.max(0, p.radius - 2),
+  shield: (p) => Number(p.armor),
+  boots: (p) => Number(p.boots),
+};
+const MODIFIER_KINDS = Object.keys(MODIFIERS);
+
 export const INK = '#120d0a';
 export const PAPER = { text: '#2b1a0c', dim: '#6b5335', accent: '#a01818', photo: '#cdb98a', light: '#f6e7bd' };
 
 const PANEL_W = WIDTH - PANEL_X;
 const SEPIA = 0.5;                   // насколько фотография выцвела: 0 — цвета как были, 1 — одна коричневая сепия
 const PHOTO = [5, 9, 98, 116];       // место фотографии на листке-карточке
-const COUNTS = [151, 108, 130];      // листок со счётчиками героя: отступ слева, ширина, высота
+const COUNTS = [151, 108, 138];      // листок со счётчиками героя: отступ слева, ширина, высота
 const RED = '#e02424';               // штамп «ПОГИБ» и рамка «ВОСКРЕСИТЬ»
 const cardY = (i) => 361 + 170 * i;  // карточки героев: Иван выше, Игорь ниже; под ними — полоса для кнопок страницы
 export const BUTTONS = [PANEL_X + PANEL_W / 2, 714];   // середина этой полосы: сюда main.js ставит кнопки звука и экрана
@@ -222,10 +231,21 @@ export function addPanel(scene, players = 2, revive = null) {
       sheet(g, 21, y, 108, 130);
       photo(g, scene, i + 1, 21 + PHOTO[0], y + PHOTO[1], PHOTO[2], PHOTO[3]);
       sheet(g, COUNTS[0], y, COUNTS[1], COUNTS[2]);
-      heart(g, 178, y + 36, 1.05);
-      bombIcon(g, scene, i + 1, 177, y + 92);
-      sheet(g, 21, y + 134, 108, 24);
-      sheet(g, 151, y + 134, 108, 24);
+      heart(g, 178, y + 31, 0.9);
+      bombIcon(g, scene, i + 1, 177, y + 67);
+      g.beginPath();
+      g.moveTo(COUNTS[0] + 8, y + 92);
+      g.lineTo(COUNTS[0] + COUNTS[1] - 8, y + 92);
+      g.lineWidth = 1;
+      g.strokeStyle = 'rgba(74, 53, 25, 0.35)';
+      g.stroke();
+      g.fillStyle = 'rgba(54, 35, 17, 0.88)';
+      g.beginPath();
+      if (g.roundRect) g.roundRect(COUNTS[0] + 5, y + 99, COUNTS[1] - 10, 34, 4);
+      else g.rect(COUNTS[0] + 5, y + 99, COUNTS[1] - 10, 34);
+      g.fill();
+      sheet(g, 21, y + 142, 108, 24);
+      sheet(g, 151, y + 142, 108, 24);
       if (i >= players) {
         g.fillStyle = 'rgba(46, 28, 12, 0.62)';
         g.fillRect(17, y - 4, 248, 168);
@@ -250,10 +270,10 @@ export function addPanel(scene, players = 2, revive = null) {
     heroes: [0, 1].map((i) => {
       const y = cardY(i);
       const parts = {
-        lives: text(226, y + 37, 26, PAPER.text, bold),
-        bombs: text(226, y + 92, 26, PAPER.text, bold),
-        name: text(75, y + 147, 16, PAPER.text, bold),
-        score: text(205, y + 147, 16, PAPER.text, bold),
+        lives: text(226, y + 32, 24, PAPER.text, bold),
+        bombs: text(226, y + 68, 24, PAPER.text, bold),
+        name: text(75, y + 154, 16, PAPER.text, bold),
+        score: text(205, y + 154, 16, PAPER.text, bold),
       };
       if (i >= players) for (const part of Object.values(parts).flat()) part.setAlpha(0.35);
       parts.dead = addCanvas(scene, PANEL_X + 21 + PHOTO[0], y + PHOTO[1], deadPhoto(scene, i + 1))
@@ -271,6 +291,31 @@ export function addPanel(scene, players = 2, revive = null) {
       return parts;
     }),
   };
+}
+
+export function addModifierStrip(scene, index) {
+  const x = PANEL_X + COUNTS[0] + 14, y = cardY(index) + 116;
+  const top = DEPTH.panel + 2;
+  const parts = MODIFIER_KINDS.map((kind, i) => {
+    const cx = x + i * 20;
+    const icon = scene.add.image(cx, y, `bonus_${kind}`)
+      .setOrigin(0.5).setScale(28 / CELL).setDepth(top).setVisible(false);
+    const label = scene.add.text(cx + 6, y + 7, '', textStyle(10, PAPER.light, {
+      fontStyle: 'bold', stroke: INK, strokeThickness: 3,
+    })).setOrigin(0.5).setDepth(top + 0.1).setVisible(false);
+    return { kind, icon, label };
+  });
+  return parts;
+}
+
+export function updateModifiers(parts, player) {
+  if (!parts) return;
+  for (const part of parts) {
+    const amount = MODIFIERS[part.kind](player);
+    const visible = amount > 0;
+    part.icon.setVisible(visible);
+    part.label.setVisible(visible && amount > 1).setText(amount > 1 ? count(amount) : '');
+  }
 }
 
 export const count = (n) => `× ${n}`;

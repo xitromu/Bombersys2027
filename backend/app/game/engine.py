@@ -25,7 +25,6 @@ from .config import (
     ARMORED_SPEEDUP,
     BIG_EATERS,
     BLAST_RADIUS,
-    BOMB_BONUS_OVERFLOW_SCORE,
     BOMB_FUSE,
     BOMBER_FLEE,
     BOMBER_MAX_BOMBS,
@@ -84,6 +83,7 @@ from .config import (
     THIEF_PANIC_RADIUS,
     THIEF_SPEED_FACTOR,
     boss_rank,
+    snake_rank,
 )
 from .difficulty import enemy_stats, for_level
 from .entities import Bomb, Enemy, Flame, Item, Nest, Player
@@ -300,10 +300,10 @@ class Game:
 
     def detonate(self, index: int) -> None:
         """Пульт: рвётся самая ранняя из «пультовых» бомб героя. Остальные — следующими нажатиями."""
-        if self.phase != "playing" or not 0 <= index < len(self.players):
+        if self.phase not in ("playing", "level_done") or not 0 <= index < len(self.players):
             return
         player = self.players[index]
-        if not player.active or not player.remote:
+        if (player.state not in ("alive", "exited") or not player.remote):
             return
         mine = [b for b in self.bombs.values() if b.owner == index and b.remote]
         if mine:
@@ -351,6 +351,7 @@ class Game:
         elif self.phase == "level_done":
             # уровень кончился, но «пультовые» бомбы погибших догорают: взрыв через 2 с после смерти хозяина
             self._tick_bombs(dt)
+            self._check_level_end()
             if self.phase_time >= LEVEL_END_TIME:
                 self._finish_level()
 
@@ -420,42 +421,44 @@ class Game:
             else:
                 self.at_locked_door.discard(player.index)
 
+    def _item_gives_effect(self, player: Player, kind: str) -> bool:
+        if kind == "bomb":
+            return player.capacity < MAX_BOMBS
+        if kind == "remote":
+            return not player.remote
+        if kind == "fire":
+            return player.radius < MAX_RADIUS
+        if kind == "shield":
+            return not player.armor
+        if kind == "boots":
+            return not player.boots
+        return True
+
     def _apply_item(self, player: Player, item: Item) -> None:
         kind = item.kind
-        if kind != "door":
-            self.items.pop(item.id, None)
+        if kind != "door" and not self._item_gives_effect(player, kind):
+            return
+        self.items.pop(item.id, None)
         self._emit("item_taken", player=player.index, kind=kind, x=item.cell[0], y=item.cell[1])
         if kind == "door":
             player.state, player.state_time = "exited", 0.0
             player.wanted, player.moving = None, False
             self._emit("player_exited", player=player.index)
         elif kind == "bomb":
-            if player.capacity < MAX_BOMBS:
-                player.capacity += 1
-            else:
-                self._add_score(player, BOMB_BONUS_OVERFLOW_SCORE)
+            player.capacity += 1
         elif kind == "life":
             player.lives += 1
         elif kind == "death":
             self._kill(player, epic=False, cause="trap")
         elif kind in MECHANIC_ITEMS:
-            upgraded = {
-                "remote": not player.remote,
-                "fire": player.radius < MAX_RADIUS,
-                "shield": not player.armor,
-                "boots": not player.boots,
-            }[kind]
-            if upgraded:
-                if kind == "remote":
-                    player.remote = True
-                elif kind == "fire":
-                    player.radius += 1
-                elif kind == "shield":
-                    player.armor = True
-                else:
-                    player.boots = True
+            if kind == "remote":
+                player.remote = True
+            elif kind == "fire":
+                player.radius += 1
+            elif kind == "shield":
+                player.armor = True
             else:
-                self._add_score(player, BOMB_BONUS_OVERFLOW_SCORE)   # уже есть — деньгами
+                player.boots = True
         else:
             self._add_score(player, ITEM_SCORES[kind])
 
@@ -927,9 +930,10 @@ class Game:
     def _check_level_end(self) -> None:
         if any(p.state in ("alive", "dying") for p in self.players):
             return
-        self.result = "next" if any(p.state == "exited" for p in self.players) else "retry"
-        self._set_phase("level_done")
-        self._emit("level_done", result=self.result)
+        if self.phase != "level_done":
+            self.result = "next" if any(p.state == "exited" for p in self.players) else "retry"
+            self._set_phase("level_done")
+            self._emit("level_done", result=self.result)
 
     def _finish_level(self) -> None:
         if all(p.lives == 0 for p in self.players):
@@ -989,6 +993,7 @@ class Game:
                     "radius": p.radius,                             # крест огня его бомб
                     "armor": p.armor,                               # щит: погасит один удар
                     "boots": p.boots,                               # сапоги: быстрее
+                    "capacity": p.capacity,                         # всего бомб: для панели модификаторов
                 }
                 for p in self.players
             ],
@@ -997,7 +1002,7 @@ class Game:
                  "kind": e.kind, "path": self._path_for_browser(e) if e.kind == "snake" else [],
                  "armor": e.armor, "enraged": e.enraged, "in_wall": self._in_wall(e),
                  "burrowed": e.burrowed > 0, "loot": e.loot is not None,
-                 "rank": boss_rank(self.level) if e.kind == "boss" else 0}
+                 "rank": boss_rank(self.level) if e.kind == "boss" else snake_rank(self.level) if e.kind == "snake" else 0}
                 for e in self.enemies.values()
             ],
             "bombs": [

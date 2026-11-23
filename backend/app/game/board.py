@@ -19,6 +19,20 @@ Cell = tuple[int, int]  # (x, y) — столбец и строка
 
 NEIGHBOR_STEPS = ((-1, 0), (1, 0), (0, -1), (0, 1))
 
+SHELTER_BLOCKS = (
+    ((3, 3), (4, 3), (3, 4), (4, 4)),
+    ((10, 3), (11, 3), (10, 4), (11, 4), (10, 5), (11, 5)),
+    ((3, 9), (4, 9), (3, 10), (4, 10), (3, 11), (4, 11)),
+    ((10, 10), (11, 10), (10, 11), (11, 11)),
+)
+# Блоки добавляют 14 новых колонн — столько же убираем, чтобы плотность поля не менялась.
+SHELTER_CLEARINGS = {
+    (1, 3), (3, 1), (5, 3), (3, 5),
+    (9, 3), (9, 5), (13, 5),
+    (5, 9), (1, 9), (5, 11),
+    (9, 11), (13, 11), (11, 9), (11, 13),
+}
+
 
 class Board:
     def __init__(self, cells: list[list[str]]):
@@ -26,17 +40,24 @@ class Board:
 
     @staticmethod
     def is_pillar_cell(x: int, y: int) -> bool:
-        """Колонны стоят в шахматном порядке: на нечётных строках и столбцах."""
+        """Базовая шахматная сетка; блочные укрытия добавляются отдельно."""
         return x % 2 == 1 and y % 2 == 1
 
     @classmethod
-    def empty(cls) -> Board:
-        return cls([[PILLAR if cls.is_pillar_cell(x, y) else EMPTY for x in range(GRID)] for y in range(GRID)])
+    def empty(cls, blocks: bool = False, mirrored: bool = False) -> Board:
+        """Голое поле; blocks — симметричные укрытия вместо части одиночных колонн."""
+        pillars = {(x, y) for y in range(GRID) for x in range(GRID) if cls.is_pillar_cell(x, y)}
+        if blocks:
+            pillars.difference_update(SHELTER_CLEARINGS)
+            pillars.update(cell for block in SHELTER_BLOCKS for cell in block)
+            if mirrored:
+                pillars = {(GRID - 1 - x, y) for x, y in pillars}
+        return cls([[PILLAR if (x, y) in pillars else EMPTY for x in range(GRID)] for y in range(GRID)])
 
     @classmethod
     def generate(cls, rng: random.Random, walls: int, keep_free: set[Cell]) -> Board:
         """Случайно расставляет стены, не трогая клетки из keep_free (углы игроков)."""
-        board = cls.empty()
+        board = cls.empty(blocks=True, mirrored=rng.choice((False, True)))
         candidates = [
             (x, y)
             for y in range(GRID)
@@ -59,11 +80,12 @@ class Board:
         """«Сквозной коридор»: две свободные строки через всё поле, а сверху и снизу — частокол
         из одинаковых блоков с проходами между ними. Длинная погоня без тупиков;
         воришке есть где прятать добычу, кроту — что вскрывать."""
-        board = cls.empty()
+        board = cls.empty(blocks=True, mirrored=rng.choice((False, True)))
         y0 = rng.choice((6, 7))
         band = {y0, y0 + 1}
         blocks = [(x, y) for y in range(GRID) if y not in band
-                  for x in range(GRID) if x % 2 == 0 and y % 2 == 0 and (x, y) not in keep_free]
+                  for x in range(GRID) if x % 2 == 0 and y % 2 == 0
+                  and board.get((x, y)) == EMPTY and (x, y) not in keep_free]
         for cell in rng.sample(blocks, min(walls, len(blocks))):
             board.set(cell, WALL)
         rest = [c for c in board.cells_of(EMPTY) if c not in keep_free and c[1] not in band]
@@ -77,8 +99,8 @@ class Board:
     def _layout_island(cls, rng: random.Random, walls: int, keep_free: set[Cell]) -> Board:
         """«Арена с островом»: в центре — квадрат из стен с четырьмя входами, вокруг него чистая
         арена. Дверь и бонусы чаще всего прячутся в острове. Крот отрезает остров от мостиков."""
-        board = cls.empty()
-        island = [(x, y) for y in range(5, 10) for x in range(5, 10) if not cls.is_pillar_cell(x, y)]
+        board = cls.empty(blocks=True, mirrored=rng.choice((False, True)))
+        island = [(x, y) for y in range(5, 10) for x in range(5, 10) if board.get((x, y)) != PILLAR]
         for cell in island:
             board.set(cell, WALL)
         gates = [(6, 5), (8, 5), (6, 9), (8, 9)]          # проходы внутрь острова
@@ -96,14 +118,14 @@ class Board:
         """«Лабиринт-улитка»: два вала — кольцо посреди поля и квадрат у центра, каждый с одним
         проходом с противоположных сторон: внутрь попадаешь, обойдя вал кругом. Снаружи — редкие
         стены. Кемпиться негде, а крот прорубает прямые ходы через валы."""
-        board = cls.empty()
+        board = cls.empty(blocks=True, mirrored=rng.choice((False, True)))
         forbidden = keep_free | {(7, 7)}
 
         def ring(offset: int, gap: Cell) -> list[Cell]:
             lo, hi = offset, GRID - 1 - offset
             cells = ([(x, lo) for x in range(lo, hi + 1)] + [(x, hi) for x in range(lo, hi + 1)]
                      + [(lo, y) for y in range(lo + 1, hi)] + [(hi, y) for y in range(lo + 1, hi)])
-            return [c for c in cells if c != gap and c not in forbidden and not cls.is_pillar_cell(*c)]
+            return [c for c in cells if c != gap and c not in forbidden and board.get(c) == EMPTY]
 
         pattern = ring(2, (7, 2)) + ring(6, (7, 8))
         if walls < len(pattern):                         # бюджет мал — вал с прорехами, но проходы целы

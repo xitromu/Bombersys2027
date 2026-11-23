@@ -8,7 +8,7 @@ import {
 } from '../layout.js';
 import { Banners } from '../banners.js';
 import { BlastView, BombView, FlameView, WallChunks } from '../blastView.js';
-import { PAPER, addPanel, count, points } from '../bunker.js';
+import { PAPER, addModifierStrip, addPanel, count, points, updateModifiers } from '../bunker.js';
 import { Controls } from '../controls.js';
 import { EnemyView } from '../enemyView.js';
 import { HeroView } from '../heroView.js';
@@ -127,7 +127,10 @@ export class GameScene extends Phaser.Scene {
     const keys = loadBindings();
     this.panel = addPanel(this, this.playerCount,
       HERO_NAMES.map((name, i) => ({ name, key: keyLabel(keys[i].revive) })));
-    this.panel.heroes.forEach((hero, i) => hero.name.setText(HERO_NAMES[i]));
+    this.panel.heroes.forEach((hero, i) => {
+      hero.name.setText(HERO_NAMES[i]);
+      hero.modifiers = this.createModifiers(i);
+    });
     this.showHaiku(START_HAIKU.title, START_HAIKU.text);
 
     // номер версии — мелко в самом низу панели
@@ -139,6 +142,10 @@ export class GameScene extends Phaser.Scene {
     this.message = this.add.text(FIELD_X + FIELD_SIZE / 2, 290, '',
       textStyle(44, '#ffcc00', { stroke: '#000000', strokeThickness: 6, align: 'center' }))
       .setOrigin(0.5).setDepth(DEPTH.overlay);
+  }
+
+  createModifiers(index) {
+    return addModifierStrip(this, index);
   }
 
   // Хокку живёт на правой панели, на своём листке.
@@ -461,6 +468,7 @@ export class GameScene extends Phaser.Scene {
       hero.score.setText(points(p.score));
       hero.lives.setText(count(p.lives));
       hero.bombs.setText(count(p.bombs));
+      updateModifiers(hero.modifiers, p);
       hero.dead.setVisible(['dying', 'dead', 'out'].includes(p.state));  // на портрете — штамп «ПОГИБ»
       // напарник может воскресить этого героя — поверх его счётчиков листок «ВОСКРЕСИТЬ»
       const offer = Boolean(state.players[1 - i]?.can_revive);
