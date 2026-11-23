@@ -40,11 +40,13 @@ def test_pillar_patterns_are_symmetric_and_connected():
         assert_connected_ignoring_walls(board)
 
 
-def test_bastions_have_open_central_cross():
+def test_bastions_have_central_five_cell_cross():
     board = Board.empty("bastions")
     center = GRID // 2
-    assert all(board.get((center, y)) == EMPTY for y in range(GRID))
-    assert all(board.get((x, center)) == EMPTY for x in range(GRID))
+    assert all(board.get((center, y)) == PILLAR for y in range(5, 10))
+    assert all(board.get((x, center)) == PILLAR for x in range(5, 10))
+    assert all(board.get((center, y)) == EMPTY for y in [*range(5), *range(10, GRID)])
+    assert all(board.get((x, center)) == EMPTY for x in [*range(5), *range(10, GRID)])
 
 
 def test_odd_levels_cycle_through_six_symmetric_patterns_and_even_levels_are_random():

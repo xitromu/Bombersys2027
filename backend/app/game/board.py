@@ -46,6 +46,9 @@ _BLOCK_PILLARS = (_CLASSIC_PILLARS - SHELTER_CLEARINGS) | {c for block in SHELTE
 _BASTION_PILLARS = {c for c in _mirror4({
     (3, 3), (4, 3), (3, 4), (4, 4), (1, 5), (5, 1), (5, 5), (2, 6), (6, 2),
 }) if c[0] != GRID // 2 and c[1] != GRID // 2}
+# Центральный крест: пять клеток по вертикали и пять по горизонтали.
+_BASTION_PILLARS |= {(GRID // 2, y) for y in range(5, 10)}
+_BASTION_PILLARS |= {(x, GRID // 2) for x in range(5, 10)}
 _RING_PILLARS = {(x, 3) for x in range(3, 12) if x != 7} | {(x, 11) for x in range(3, 12) if x != 7}
 _RING_PILLARS |= {(3, y) for y in range(4, 11) if y != 7} | {(11, y) for y in range(4, 11) if y != 7}
 _RING_PILLARS |= _mirror4({(1, 1), (2, 1), (1, 2), (6, 6), (7, 6), (6, 7), (7, 7)})

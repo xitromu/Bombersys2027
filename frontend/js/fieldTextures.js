@@ -4,8 +4,8 @@
 import { CELL, cellLeft, cellTop } from './layout.js';
 
 const SAMPLES = {
-  wall: { texture: 'pillars', x: 0, y: 0 },
-  pillar: { texture: 'walls', x: 1, y: 1 },
+  wall: { texture: 'walls', x: 1, y: 1 },
+  pillar: { texture: 'pillars', x: 0, y: 0 },
 };
 
 export function fieldCellTexture(scene, kind) {

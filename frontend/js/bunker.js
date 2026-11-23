@@ -294,13 +294,16 @@ export function addPanel(scene, players = 2, revive = null) {
 }
 
 export function addModifierStrip(scene, index) {
-  const x = PANEL_X + COUNTS[0] + 14, y = cardY(index) + 116;
+  const inset = 5;
+  const slot = (COUNTS[1] - inset * 2) / MODIFIER_KINDS.length;
+  const x = PANEL_X + COUNTS[0] + inset + slot / 2;
+  const y = cardY(index) + 116;
   const top = DEPTH.panel + 2;
   const parts = MODIFIER_KINDS.map((kind, i) => {
-    const cx = x + i * 20;
+    const cx = x + i * slot;
     const icon = scene.add.image(cx, y, `bonus_${kind}`)
-      .setOrigin(0.5).setScale(28 / CELL).setDepth(top).setVisible(false);
-    const label = scene.add.text(cx + 6, y + 7, '', textStyle(10, PAPER.light, {
+      .setOrigin(0.5).setScale(20 / CELL).setDepth(top).setVisible(false);
+    const label = scene.add.text(cx + 5, y + 6, '', textStyle(10, PAPER.light, {
       fontStyle: 'bold', stroke: INK, strokeThickness: 3,
     })).setOrigin(0.5).setDepth(top + 0.1).setVisible(false);
     return { kind, icon, label };
