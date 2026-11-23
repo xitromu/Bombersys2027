@@ -4,7 +4,7 @@
 // те же кадры гибели, но без головы (её съела тварь): собирает mockups/hero/build_headless.py.
 // Твари, змея, бонусы, панель и надписи поверх поля рисуются на холсте — картинок для них нет.
 
-import { WIDTH, HEIGHT, textStyle } from '../layout.js';
+import { HEIGHT, WIDTH, textStyle } from '../layout.js';
 import { createBlastTextures } from '../blastView.js';
 import { createItemTextures } from '../itemView.js';
 import { createBonesTextures } from '../bonesView.js';

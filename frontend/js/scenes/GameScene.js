@@ -3,11 +3,12 @@
 // движение (интерполяция), чтобы картинка не дёргалась.
 
 import {
-  CELL, DEPTH, FIELD_SIZE, FIELD_X, FIELD_Y, GRID, PANEL_X, TICK_MS, WIDTH,
+  DEPTH, FIELD_SIZE, FIELD_X, FIELD_Y, GRID, PANEL_X, TICK_MS, WIDTH,
   actorDepth, cellCenterX, cellCenterY, cellTop, textStyle,
 } from '../layout.js';
 import { Banners } from '../banners.js';
 import { BlastView, BombView, FlameView, WallChunks } from '../blastView.js';
+import { addFieldCell } from '../fieldTextures.js';
 import { PAPER, addModifierStrip, addPanel, count, points, updateModifiers } from '../bunker.js';
 import { Controls } from '../controls.js';
 import { EnemyView } from '../enemyView.js';
@@ -54,6 +55,7 @@ export class GameScene extends Phaser.Scene {
     this.currAt = 0;
     this.finished = false;
     this.walls = new Map();
+    this.pillars = new Map();
     this.items = new Map();
     this.bombs = new Map();
     this.flames = new Map();
@@ -110,16 +112,6 @@ export class GameScene extends Phaser.Scene {
     this.add.graphics().setDepth(DEPTH.floor)
       .lineStyle(5, 0x0000c8).strokeRect(1, 1, FIELD_SIZE + 5, FIELD_SIZE + 5);
     this.add.image(FIELD_X, FIELD_Y, 'floor').setOrigin(0).setDepth(DEPTH.floor);
-    for (let y = 1; y < GRID; y += 2) {
-      for (let x = 1; x < GRID; x += 2) {
-        this.cellPiece('pillars', x, y).setDepth(DEPTH.pillars);
-      }
-    }
-  }
-
-  // Кусок большой текстуры размером с клетку — так в оригинале рисовались стены.
-  cellPiece(texture, x, y) {
-    return this.add.image(FIELD_X, FIELD_Y, texture).setOrigin(0).setCrop(x * CELL, y * CELL, CELL, CELL);
   }
 
   createHud() {
@@ -165,6 +157,7 @@ export class GameScene extends Phaser.Scene {
 
     this.audio.update(state);
     for (const event of state.events) this.handleEvent(event);
+    this.syncPillars(state.grid);
     this.syncWalls(state.grid);
     this.sync(this.items, state.items, (o) => o.id,
       (o) => new ItemView(this, o),
@@ -224,12 +217,25 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  syncPillars(grid) {
+    for (let i = 0; i < grid.length; i++) {
+      const isPillar = grid[i] === '#';
+      const pillar = this.pillars.get(i);
+      if (isPillar && !pillar) {
+        this.pillars.set(i, addFieldCell(this, 'pillars', i % GRID, Math.floor(i / GRID), DEPTH.pillars));
+      } else if (!isPillar && pillar) {
+        pillar.destroy();
+        this.pillars.delete(i);
+      }
+    }
+  }
+
   syncWalls(grid) {
     for (let i = 0; i < grid.length; i++) {
       const isWall = grid[i] === 'w';
       const wall = this.walls.get(i);
       if (isWall && !wall) {
-        this.walls.set(i, this.cellPiece('walls', i % GRID, Math.floor(i / GRID)).setDepth(DEPTH.walls));
+        this.walls.set(i, addFieldCell(this, 'walls', i % GRID, Math.floor(i / GRID), DEPTH.walls));
       } else if (!isWall && wall) {
         this.walls.delete(i);
         this.tweens.addCounter({                    // стена сгорает: чернеет и тает

@@ -2,7 +2,8 @@
 // вместо старой заставки (кадр из фильма «Мумия» убран).
 
 import { addPanel, count } from './bunker.js';
-import { CELL, FIELD_SIZE, FIELD_X, FIELD_Y, GRID, textStyle } from './layout.js';
+import { addFieldCell } from './fieldTextures.js';
+import { FIELD_SIZE, FIELD_X, FIELD_Y, GRID, textStyle } from './layout.js';
 import { START_HAIKU } from './texts.js';
 
 export function drawBackdrop(scene) {
@@ -10,8 +11,7 @@ export function drawBackdrop(scene) {
   scene.add.image(FIELD_X, FIELD_Y, 'floor').setOrigin(0).setTint(0x666666);
   for (let y = 1; y < GRID; y += 2) {
     for (let x = 1; x < GRID; x += 2) {
-      scene.add.image(FIELD_X, FIELD_Y, 'pillars').setOrigin(0)
-        .setCrop(x * CELL, y * CELL, CELL, CELL).setTint(0x777777);
+      addFieldCell(scene, 'pillars', x, y, 0).setTint(0x777777);
     }
   }
 
