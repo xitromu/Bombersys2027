@@ -23,6 +23,11 @@ const oval = (g, x, y, rx, ry = rx, turn = 0) => {
   g.beginPath();
   g.ellipse(x, y, rx, ry, turn, 0, Math.PI * 2);
 };
+const rect = (g, x, y, w, h, r = 0) => {
+  g.beginPath();
+  if (r) g.roundRect(x, y, w, h, r);
+  else g.rect(x, y, w, h);
+};
 const poly = (g, points) => {
   g.beginPath();
   points.forEach(([x, y]) => g.lineTo(x, y));
@@ -80,6 +85,20 @@ function eye(g, x, y, look, alert) {
   oval(g, px - rx * 0.18, py - ry * 0.2, rx * 0.16);
   fill(g, '#fff');
 }
+
+// Блик — светлое пятно на поверхности.
+const shine = (g, x, y, rx, ry, alpha = 0.4) => {
+  oval(g, x, y, rx, ry);
+  fill(g, `rgba(255, 255, 255, ${alpha})`);
+};
+// Тот же глаз, только меньше: для зверьков, у которых глаза-бусинки.
+const smallEye = (g, x, y, look, k = 0.75) => {
+  g.save();
+  g.translate(x, y);
+  g.scale(k, k);
+  eye(g, 0, 0, look, false);
+  g.restore();
+};
 
 // Ряд из n клыков вдоль отрезка: вниз (dir = 1) или вверх (dir = -1).
 function teeth(g, x0, x1, y, n, size, dir = 1) {
@@ -189,97 +208,122 @@ function drawPhantom(g, clock) {
   fill(g, '#1a2a38');
 }
 
-// Крот — копающий монстр: вытянутый ком земли, костяные резцы и широкие лапы-каналы с когтями.
-// Под землёй показываем только торчащий затылок и кучу земли — зверя не видно целиком.
-function drawMole(g, { clock = 0, walked = 0, look = [1, 0], burrowed = false }) {
-  const TONES = ['#d8c8ea', '#7a5aa8', '#3a2454'];
-  const CLAW = ['#f2e4c3', '#9c8455'];
+// Куча земли, которую крот выкинул из норы.
+function mound(g, x, y) {
+  g.beginPath();
+  g.moveTo(x - 18, y + 4);
+  g.quadraticCurveTo(x - 9, y - 7, x, y - 5);
+  g.quadraticCurveTo(x + 9, y - 7, x + 18, y + 4);
+  g.closePath();
+  pair(g, ['#7a6244', '#3e2d1b'], 1.2);
+  for (const [dx, dy, r] of [[-7, 0, 2.2], [4, 1, 2.6], [11, -1, 1.6], [-1, -3, 1.4]]) {
+    oval(g, x + dx, y + dy, r);
+    fill(g, '#8f7654');
+    stroke(g, 0.8);
+  }
+}
+// Комья, летящие из-под лап: t — доля полёта 0..1.
+function crumbs(g, clock, x0, y0, reach = 9, lift = 11) {
+  for (let i = 0; i < 3; i++) {
+    const t = (clock * 1.4 + i / 3) % 1, side = i % 2 ? 1 : -1;
+    oval(g, x0 + side * (reach * t), y0 - lift * Math.sin(Math.PI * t), 1.3, 1.1);
+    fill(g, '#5d4a33');
+    stroke(g, 0.7);
+  }
+}
+
+const MINER_FUR = ['#f8e2a2', '#d4a842', '#7c5c18'];   // охристый мех
+const MINER_HAT = ['#fffdf4', '#d6cfba'];              // белая каска
+
+function lampGlow(g, x, y) {
+  const glow = g.createRadialGradient(x, y, 1, x, y, 10);
+  glow.addColorStop(0, 'rgba(255, 236, 120, 0.6)');
+  glow.addColorStop(1, 'rgba(255, 236, 120, 0)');
+  g.fillStyle = glow;
+  g.fillRect(x - 11, y - 11, 22, 22);
+}
+function lamp(g, x, y) {
+  oval(g, x, y, 3.4, 3.7);
+  fill(g, '#ffe14a');
+  stroke(g, 1.1);
+  shine(g, x - 1, y - 1.2, 1, 0.8, 0.9);
+}
+function hardHat(g, y) {
+  g.beginPath();
+  g.arc(0, y, 12.5, Math.PI, 0);
+  g.closePath();
+  pair(g, MINER_HAT, 1.5);
+  rect(g, -15, y - 1.4, 30, 3.6, 1.6);
+  pair(g, MINER_HAT, 1.3);
+}
+
+// Крот — шахтёр: охристый пушистый зверь в белой каске с фонариком. Глаза-бусинки, ухмылка с двумя
+// зубками, лапы с когтями гребут вперёд и из-под них летит земля. Под землёй видны только каска
+// с фонарём над кучей выброшенной земли.
+function drawMole(g, { clock = 0, walked = 0, look = [0, 0.4], burrowed = false }) {
   const step = Math.sin(walked / STRIDE);
-  const dig = Math.sin(clock * 12);
-  const dir = look[0] < -0.01 ? -1 : 1;
-  g.save();
   oval(g, 0, 21, 16, 4);
   fill(g, 'rgba(0, 0, 0, 0.32)');
   if (burrowed) {
-    g.globalAlpha = 0.45;
-    g.translate(-dir * 6, 11);
-    g.scale(dir, 1);
-    oval(g, 1, 0, 13, 8, -0.15);                   // над поверхностью остаётся затылок
-    volume(g, TONES);
-    stroke(g, 1.5);
-    for (const side of [-1, 1]) {
-      oval(g, -7 + side * 2, -4, 3.4, 2.2, -0.2);
-      fill(g, 'rgba(255, 255, 255, 0.3)');
-    }
+    lampGlow(g, 0, 0);
+    g.save();
+    g.translate(0, 11);
+    hardHat(g, -2);
     g.restore();
-    oval(g, dir * 10, 16, 16, 5.5);                 // выброшенная земля
-    fill(g, '#4a3826');
-    stroke(g, 1.2);
-    for (const [x, y, r] of [[0, 13, 2.8], [-9, 16, 2.1], [9, 18, 2.3], [15, 13, 1.5]]) {
-      oval(g, x, y, r);
-      fill(g, '#5d4a33');
-      stroke(g, 0.9);
-    }
+    lamp(g, 0, 1.5);
+    mound(g, 0, 19);
     return;
   }
-
-  for (const side of [-1, 1]) {                     // лапы-каналы работают по очереди
+  g.save();
+  g.translate(0, 1 - Math.abs(step) * 1.6);
+  g.rotate(look[0] * 0.08 + step * 0.07);
+  for (const side of [-1, 1]) {                      // лапы с когтями гребут по очереди
     g.save();
-    g.translate(side * 10 + dir * 3, 14 - Math.max(0, side * step) * 3);
+    g.translate(side * 13, 13 - Math.max(0, side * step) * 3.5);
     g.scale(side, 1);
-    g.rotate(-0.45 + side * dig * 0.08);
-    poly(g, [[-3, -9], [3, -8], [7, 2], [13, 8], [10, 11], [3, 9], [-4, 4]]);
-    pair(g, TONES, 1.3);
-    for (let i = 0; i < 3; i++) {                   // землеройные когти
-      poly(g, [[8 + i * 1.3, 6], [14 + i * 1.8, 10 + i * 0.5], [10, 10.5]]);
-      pair(g, CLAW, 0.9);
+    g.rotate(0.35);
+    oval(g, 0, 0, 6, 4.6);
+    pair(g, [MINER_FUR[0], MINER_FUR[2]], 1.3);
+    for (let i = 0; i < 3; i++) {
+      oval(g, 2.4 + i * 1, -2.4 + i * 2.4, 1.2);
+      fill(g, '#fff7de');
+      stroke(g, 0.8);
     }
     g.restore();
   }
-
-  g.translate(0, 1 - Math.abs(step) * 1.4);
-  g.scale(dir, 1);
-  g.beginPath();                                    // не овал, а ком с горбом и вытянутой мордой
-  g.moveTo(-16, 7);
-  g.bezierCurveTo(-19, -3, -12, -13, -2, -13);
-  g.quadraticCurveTo(6, -13, 12, -5);
-  g.quadraticCurveTo(18, -3, 18, 3);
-  g.quadraticCurveTo(18, 10, 10, 14);
-  g.quadraticCurveTo(-4, 18, -16, 7);
+  g.beginPath();                                     // грушевидное тело
+  g.moveTo(-15, 9);
+  g.bezierCurveTo(-17, -8, -8, -15, 0, -15);
+  g.bezierCurveTo(8, -15, 17, -8, 15, 9);
+  g.bezierCurveTo(12, 18, -12, 18, -15, 9);
   g.closePath();
-  volume(g, TONES);
+  volume(g, MINER_FUR);
   stroke(g, 1.7);
-  g.beginPath();                                    // продольные борозды — монстр действительно копает
-  g.moveTo(-11, -8);
-  g.quadraticCurveTo(-5, -13, 1, -11);
-  g.moveTo(-14, -3);
-  g.quadraticCurveTo(-7, -8, 0, -5);
-  line(g, -12, -7, -6, -9, 1.1, 'rgba(58, 36, 84, 0.6)');
-  line(g, -14, -1, -7, -3, 1.1, 'rgba(58, 36, 84, 0.55)');
-  oval(g, -6, -4.5, 4.2, 2, -0.45);
-  fill(g, 'rgba(255, 255, 255, 0.35)');
-
-  g.beginPath();                                    // нос-лопата: широкая, с двумя ноздрями
-  g.moveTo(10, -4);
-  g.quadraticCurveTo(19, -6, 21.5, 0);
-  g.quadraticCurveTo(20, 7, 10, 5);
-  g.closePath();
-  pair(g, ['#e8a8b8', '#a85a6e'], 1.3);
-  oval(g, 18.5, 0.5, 1.5);
-  oval(g, 18, 4, 1.2);
-  fill(g, '#5e2430');
-  for (const side of [-1, 1]) {
-    oval(g, 5.7, -6.3 + side * 1.9, 2.2, 1.7);
-    fill(g, '#fffdf4');
-    stroke(g, 0.9);
-    oval(g, 6.1, -6.2 + side * 1.9, 1.1, 1.3);
-    fill(g, INK);
-    line(g, 3.4, -10 + side * 0.4, 8.2, -8 + side * 0.4, 1.5);
+  crumbs(g, clock, 0, 16, 11, 8);
+  for (const side of [-1, 1]) {                      // слепые глазки-бусинки и усы
+    smallEye(g, side * 5.8, -0.5, look);
+    for (let i = 0; i < 3; i++) {
+      const dy = -1 + i * 2;
+      line(g, side * 4.5, 3 + dy, side * 12.5, 1.5 + dy * 1.6, 0.8, 'rgba(124, 92, 24, 0.95)');
+    }
   }
-  poly(g, [[11.5, 3], [14.2, 3], [12.8, 8.5]]);   // длинный резец, как у землероя
-  poly(g, [[15.1, 3], [17.5, 3.5], [16.1, 8]]);
-  fill(g, '#fffdf4');
-  stroke(g, 0.8);
+  g.beginPath();                                     // ухмылка с двумя зубками
+  g.moveTo(-5.5, 7);
+  g.quadraticCurveTo(0, 13, 5.5, 7);
+  g.closePath();
+  fill(g, '#3a0d10');
+  stroke(g, 1);
+  for (const x of [-3.4, 0.3]) {
+    poly(g, [[x, 7], [x + 3.1, 7], [x + 1.5, 10]]);
+    fill(g, '#fffdf4');
+    stroke(g, 0.8);
+  }
+  oval(g, 0, 3, 3.5, 2.6);                           // нос
+  pair(g, ['#ffb9a0', '#d96a5a'], 1.2);
+  shine(g, -1, 2.2, 1, 0.6, 0.7);
+  hardHat(g, -7);
+  lampGlow(g, 0, -10.5);
+  lamp(g, 0, -10.5);
   g.restore();
 }
 

@@ -303,7 +303,7 @@ export function addModifierStrip(scene, index) {
     const cx = x + i * slot;
     const icon = scene.add.image(cx, y, `bonus_${kind}`)
       .setOrigin(0.5).setScale(20 / CELL).setDepth(top).setVisible(false);
-    const label = scene.add.text(cx + 5, y + 6, '', textStyle(10, PAPER.light, {
+    const label = scene.add.text(cx + 6, y - 7.5, '', textStyle(9, PAPER.light, {
       fontStyle: 'bold', stroke: INK, strokeThickness: 3,
     })).setOrigin(0.5).setDepth(top + 0.1).setVisible(false);
     return { kind, icon, label };
@@ -317,7 +317,7 @@ export function updateModifiers(parts, player) {
     const amount = MODIFIERS[part.kind](player);
     const visible = amount > 0;
     part.icon.setVisible(visible);
-    part.label.setVisible(visible && amount > 1).setText(amount > 1 ? count(amount) : '');
+    part.label.setVisible(visible && amount > 1).setText(amount > 1 ? String(amount) : '');
   }
 }
 

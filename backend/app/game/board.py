@@ -3,9 +3,9 @@
 В оригинале это была матрица char Matrix[15][15] с кодами 10/80/90/99.
 Здесь — сетка символов: "." пол, "w" стена, "#" колонна.
 
-Планировка: со 2-го уровня (не босс) поле собирается по одной из схем — «сквозной коридор»,
-«арена с островом» или «лабиринт-улитка» (боссы — наугад, у них своя арена). У каждой схемы свой
-характер: где убегать воришке, что кроту рыть, где игроку закрываться.
+Планировка: нечётные уровни (не босс) — симметричная расстановка колонн плюс одна из схем стен —
+«сквозной коридор», «арена с островом» или «лабиринт-улитка». Чётные — как в 0.6.0: шахматные колонны
+и стены наугад. У каждой схемы свой характер: где убегать воришке, что кроту рыть, где игроку закрываться.
 """
 
 from __future__ import annotations
@@ -67,7 +67,6 @@ PILLAR_PATTERNS = {
     "colonnade": _COLONNADE_PILLARS,
 }
 PILLAR_PATTERN_ORDER = ("classic", "blocks", "bastions", "ring", "cross", "colonnade")
-NEW_PILLAR_PATTERNS = PILLAR_PATTERN_ORDER[1:]
 PILLAR_PATTERN_SEQUENCE = list(PILLAR_PATTERN_ORDER)
 random.Random(2027).shuffle(PILLAR_PATTERN_SEQUENCE)
 PILLAR_PATTERN_SEQUENCE = tuple(PILLAR_PATTERN_SEQUENCE)

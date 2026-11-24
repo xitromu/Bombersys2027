@@ -1,7 +1,8 @@
 import random
 
-from app.game.board import EMPTY, NEW_PILLAR_PATTERNS, PILLAR, PILLAR_PATTERNS, PILLAR_PATTERN_SEQUENCE, WALL, Board
-from app.game.config import GRID
+from app.game.board import EMPTY, PILLAR, PILLAR_PATTERNS, PILLAR_PATTERN_SEQUENCE, WALL, Board
+from app.game.config import GRID, SPAWNS
+from app.game.difficulty import for_level
 from app.game.engine import Game
 from app.game.movement import move_on_grid
 
@@ -49,17 +50,25 @@ def test_bastions_have_central_five_cell_cross():
     assert all(board.get((x, center)) == EMPTY for x in [*range(5), *range(10, GRID)])
 
 
-def test_odd_levels_cycle_through_six_symmetric_patterns_and_even_levels_are_random():
-    for level in range(1, 13):
+def test_odd_levels_cycle_through_six_symmetric_patterns():
+    for level in range(1, 25, 2):
         game = Game(players=1, rng=random.Random(level), level=level)
-        pillars = set(game.board.cells_of(PILLAR))
-        if level % 2:
-            expected = PILLAR_PATTERN_SEQUENCE[((level - 1) // 2) % len(PILLAR_PATTERN_SEQUENCE)]
-            assert pillars == PILLAR_PATTERNS[expected], (level, expected)
-        else:
-            assert any(pillars == PILLAR_PATTERNS[name] for name in NEW_PILLAR_PATTERNS), level
+        expected = PILLAR_PATTERN_SEQUENCE[((level - 1) // 2) % len(PILLAR_PATTERN_SEQUENCE)]
+        assert set(game.board.cells_of(PILLAR)) == PILLAR_PATTERNS[expected], (level, expected)
     assert set(PILLAR_PATTERN_SEQUENCE) == set(PILLAR_PATTERNS)
     assert len(PILLAR_PATTERN_SEQUENCE) == 6
+
+
+def test_even_levels_have_walls_like_in_060():
+    """Каждый второй уровень — поле как в 0.6.0: шахматные колонны и столько же стен наугад."""
+    keep = set()
+    for sx, sy in SPAWNS:
+        keep |= {(sx, sy), (sx + (1 if sx == 0 else -1), sy), (sx, sy + (1 if sy == 0 else -1))}
+    for level in range(2, 13, 2):
+        game = Game(players=1, rng=random.Random(100 + level), level=level)
+        old = Board.generate(random.Random(100 + level), for_level(level, 1).walls, keep)
+        assert game.board.encode() == old.encode(), level
+        assert len(game.board.cells_of(WALL)) == for_level(level, 1).walls
 
 
 def test_layouts_preserve_selected_pattern_and_connected_core():

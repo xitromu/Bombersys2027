@@ -19,7 +19,7 @@ import math
 import random
 
 from . import ai, snake
-from .board import EMPTY, NEW_PILLAR_PATTERNS, PILLAR, PILLAR_PATTERN_SEQUENCE, WALL, Board, Cell
+from .board import EMPTY, PILLAR, PILLAR_PATTERN_SEQUENCE, WALL, Board, Cell
 from .config import (
     ARMOR_INVULN,
     ARMORED_SPEEDUP,
@@ -30,7 +30,7 @@ from .config import (
     BOMBER_MAX_BOMBS,
     BOMBER_PERIOD,
     BOMBER_RADIUS,
-    BOOTS_FACTOR,
+    BOOTS_BONUS,
     BOSS_HITBOX,
     BOSS_RANKS,
     BOSS_SCORE,
@@ -53,7 +53,9 @@ from .config import (
     ITEM_SCORES,
     KIND_SCORE_FACTOR,
     LEVEL_END_TIME,
+    MAX_ARMOR,
     MAX_BOMBS,
+    MAX_BOOTS,
     MAX_RADIUS,
     MECHANIC_ITEMS,
     MOLE_BURROW_TIME,
@@ -138,9 +140,10 @@ class Game:
             keep_free |= {(sx, sy), (sx + (1 if sx == 0 else -1), sy), (sx, sy + (1 if sy == 0 else -1))}
         if self.level % 2:
             pattern = PILLAR_PATTERN_SEQUENCE[((self.level - 1) // 2) % len(PILLAR_PATTERN_SEQUENCE)]
+            self.board = Board.with_layout(self.rng, self.settings.walls, keep_free, self.settings.layout, pattern)
         else:
-            pattern = self.rng.choice(NEW_PILLAR_PATTERNS)
-        self.board = Board.with_layout(self.rng, self.settings.walls, keep_free, self.settings.layout, pattern)
+            # чётный уровень — как в 0.6.0: шахматные колонны и стены наугад, без схем
+            self.board = Board.generate(self.rng, self.settings.walls, keep_free)
         self.hidden = self._hide_items()
         self.items: dict[int, Item] = {}
         self.bombs: dict[int, Bomb] = {}
@@ -390,7 +393,7 @@ class Game:
             if direction is None:
                 continue
             # бомбы героям не преграда: мимо невзорвавшейся можно пробежать (врагов бомба останавливает)
-            speed = PLAYER_SPEED * (BOOTS_FACTOR if player.boots else 1.0)
+            speed = PLAYER_SPEED + BOOTS_BONUS * player.boots
             x, y = move_on_grid(player.x, player.y, direction, speed * dt, self.board.is_floor)
             if (x, y) != (player.x, player.y):
                 player.x, player.y, player.facing, player.moving = x, y, direction, True
@@ -433,9 +436,9 @@ class Game:
         if kind == "fire":
             return player.radius < MAX_RADIUS
         if kind == "shield":
-            return not player.armor
+            return player.armor < MAX_ARMOR
         if kind == "boots":
-            return not player.boots
+            return player.boots < MAX_BOOTS
         return True
 
     def _apply_item(self, player: Player, item: Item) -> None:
@@ -462,9 +465,9 @@ class Game:
             elif kind == "fire":
                 player.radius += 1
             elif kind == "shield":
-                player.armor = True
+                player.armor += 1
             else:
-                player.boots = True
+                player.boots += 1
         else:
             self._add_score(player, ITEM_SCORES[kind])
 
@@ -485,8 +488,8 @@ class Game:
         half — укусил крупный (босс или матка): от туловища останется половина, а не тело без головы."""
         if player.shield > 0:           # только что воскрешён — пока неуязвим
             return
-        if player.armor:                # щит гасит один любой удар — и трескается
-            player.armor = False
+        if player.armor > 0:          # шлем гасит один любой удар — и трескается
+            player.armor -= 1
             player.shield = ARMOR_INVULN   # тот же взрыв не добивает: герой мигает, как после воскрешения
             self._emit("shield_saved", player=player.index)
             return
@@ -496,7 +499,7 @@ class Game:
         player.wanted, player.moving = None, False
         player.lives = max(0, player.lives - 1)
         player.capacity = START_BOMBS
-        player.radius, player.remote, player.armor, player.boots = BLAST_RADIUS, False, False, False
+        player.radius, player.remote, player.armor, player.boots = BLAST_RADIUS, False, 0, 0
         # «пультовые» бомбы погибшего клавишу уже не дождутся: рвутся через пару секунд после его смерти
         for bomb in self.bombs.values():
             if bomb.owner == player.index and bomb.remote:
@@ -997,8 +1000,8 @@ class Game:
                     "shield": p.shield > 0,                         # неуязвим после воскрешения: на экране мигает
                     "remote": p.remote,                             # пульт: бомбы рвутся по клавише
                     "radius": p.radius,                             # крест огня его бомб
-                    "armor": p.armor,                               # щит: погасит один удар
-                    "boots": p.boots,                               # сапоги: быстрее
+                    "armor": p.armor,                               # шлемы: сколько ударов ещё переживёт
+                    "boots": p.boots,                               # сапоги: каждая пара ускоряет
                     "capacity": p.capacity,                         # всего бомб: для панели модификаторов
                 }
                 for p in self.players

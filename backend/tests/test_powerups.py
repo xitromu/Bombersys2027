@@ -4,10 +4,12 @@ import random
 
 from app.game.board import Board
 from app.game.config import (
+    ARMOR_INVULN,
     BLAST_RADIUS,
     BOMB_FUSE,
-    BOOTS_FACTOR,
+    BOOTS_BONUS,
     LEVEL_END_TIME,
+    MAX_ARMOR,
     MAX_BOMBS,
     MAX_RADIUS,
     MECHANIC_ITEMS,
@@ -163,7 +165,35 @@ def test_shield_absorbs_a_trap_too():
     game = make_game(board=Board.empty())
     give(game, "shield")
     give(game, "death")
-    assert game.players[0].state == "alive" and not game.players[0].armor
+    assert game.players[0].state == "alive" and game.players[0].armor == 0
+
+
+def test_two_helmets_are_taken_in_reserve():
+    game = make_game(board=Board.empty())
+    player = game.players[0]
+    give(game, "shield")
+    give(game, "shield")
+    assert player.armor == MAX_ARMOR == 2
+    give(game, "death")                                             # первый шлем треснул
+    assert player.state == "alive" and player.armor == 1
+    run(game, ARMOR_INVULN + 0.1)                                   # после треснувшего шлема мигает — ждём
+    give(game, "death")                                             # второй шлем треснул
+    assert player.state == "alive" and player.armor == 0
+    give(game, "shield")                                            # опять два про запас
+    give(game, "shield")
+    assert player.armor == MAX_ARMOR == 2
+    score = player.score
+    give(game, "shield")                                            # третий шлем герою уже не нужен
+    assert player.armor == MAX_ARMOR and player.score == score and 777 in game.items
+    run(game, ARMOR_INVULN + 0.1)
+    give(game, "death")
+    assert player.state == "alive" and player.armor == 1
+    run(game, ARMOR_INVULN + 0.1)
+    give(game, "death")
+    assert player.state == "alive" and player.armor == 0
+    run(game, ARMOR_INVULN + 0.1)
+    give(game, "death")
+    assert player.state == "dying"
 
 
 # ------------------------------------------------------------------ сапоги
@@ -174,7 +204,21 @@ def test_boots_make_the_hero_faster():
     give(game, "boots")
     game.set_direction(0, "right")
     run(game, 0.5)
-    assert abs(player.x - PLAYER_SPEED * BOOTS_FACTOR * 0.5) < 0.05
+    assert abs(player.x - (PLAYER_SPEED + BOOTS_BONUS) * 0.5) < 0.05
+
+
+def test_three_pairs_of_boots_each_add_speed():
+    game = make_game(board=Board.empty())
+    player = game.players[0]
+    for count in (1, 2, 3):
+        give(game, "boots")
+        start = player.x
+        game.set_direction(0, "right")
+        run(game, 1.0)
+        assert abs(player.x - start - (PLAYER_SPEED + BOOTS_BONUS * count)) < 0.06
+    score = player.score
+    give(game, "boots")                                             # четвёртая пара уже не нужна
+    assert player.boots == 3 and player.score == score and 777 in game.items
 
 
 # ------------------------------------------------------------------ срок действия
@@ -184,7 +228,7 @@ def test_death_takes_all_mechanic_bonuses():
     player = game.players[0]
     for kind in MECHANIC_ITEMS:
         give(game, kind)
-    player.armor = False                            # щит уже потратили — ловушка убьёт
+    player.armor = 0                                # шлемы уже потратили — ловушка убьёт
     give(game, "death")
     assert player.state == "dying"
     assert player.capacity == START_BOMBS
@@ -233,4 +277,4 @@ def test_modifier_counts_are_in_snapshot():
     state = game.snapshot()["players"][0]
     assert state["capacity"] == START_BOMBS + 1
     assert state["radius"] == BLAST_RADIUS + 1
-    assert state["boots"]
+    assert state["boots"] == 1 and state["armor"] == 0
